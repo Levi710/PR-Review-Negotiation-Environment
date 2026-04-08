@@ -39,3 +39,12 @@ def state():
     if env._state is None:
         raise HTTPException(status_code=400, detail="No active episode. Call /reset first.")
     return env.state()
+
+def main():
+    import uvicorn
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
+if __name__ == "__main__":
+    main()

@@ -23,6 +23,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/Levi710/PR-Review-Negotiation-Environment"
 
+[project.scripts]
+server = "server.app:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["server*", "models*", "app*"]
