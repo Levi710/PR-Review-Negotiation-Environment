@@ -271,6 +271,8 @@ def init_state():
         st.session_state.api_url_override = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
     if "hf_token_override" not in st.session_state:
         st.session_state.hf_token_override = os.getenv("HF_TOKEN", "")
+    if "reward_history" not in st.session_state:
+        st.session_state.reward_history = []
 
 init_state()
 
