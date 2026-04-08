@@ -30,15 +30,37 @@ st.markdown("""
     background-color: #f0f2f6; 
     border-right: 1px solid #e6e9ef; 
 }
-[data-testid="stSidebar"] .section-label { 
-    color: #5e6a75; 
-    font-size: 0.7rem; 
-    font-weight: 700; 
-    text-transform: uppercase; 
-    letter-spacing: 0.05em;
-    margin-top: 1.5rem;
-    margin-bottom: 0.5rem;
-}
+    /* Sidebar Labels & Sections */
+    .section-label {
+        font-size: 0.8rem;
+        font-weight: 800;
+        color: #000000 !important;
+        margin-top: 1rem;
+        margin-bottom: 0.3rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05rem;
+    }
+    
+    /* Expander visibility fix */
+    .stExpander details summary p {
+        color: #000000 !important;
+        font-weight: 700 !important;
+    }
+    .stExpander details div {
+        color: #1a1a1a !important;
+    }
+    
+    /* Sidebar captions and help text */
+    [data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
+        color: #000000 !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Links in sidebar */
+    [data-testid="stSidebar"] a {
+        color: #5533ff !important;
+        text-decoration: underline !important;
+    }
 
 /* Metric Cards */
 [data-testid="stMetric"] {
