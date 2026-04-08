@@ -1,0 +1,16 @@
+name: pr-review-env
+version: 0.1.0
+description: >
+  A multi-turn pull request review negotiation environment. The agent acts as
+  a senior code reviewer: reviewing diffs, requesting changes, evaluating author
+  responses, and deciding to approve or escalate. Models real engineering workflows
+  as a sequential decision problem.
+tags:
+  - openenv
+  - code-review
+  - software-engineering
+  - multi-turn
+tasks:
+  - single-pass-review
+  - iterative-negotiation
+  - escalation-judgment
