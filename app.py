@@ -495,3 +495,5 @@ with tab_nego:
 
 with tab_logs:
     st.code("\n".join(st.session_state.logs), language="bash")
+#   R e b u i l d   T r i g g e r  
+ 
