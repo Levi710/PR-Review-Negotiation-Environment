@@ -64,9 +64,33 @@ h1, h2, h3, p, span, label { color: #0f172a !important; }
 button[kind="primary"] { background-color: #0f172a !important; color: white !important; font-weight: 700 !important; }
 button[kind="secondary"] { background-color: #ffffff !important; border: 1px solid #d0d7de !important; }
 
-/* Diff Container */
-.diff-container { background: #0f172a; border-radius: 12px; font-family: 'Fira Code', monospace; color: #f8fafc; border: 1px solid #1e293b; }
-.diff-header { background: #1e293b; padding: 12px 20px; font-weight: 700; border-bottom: 1px solid #334155; }
+/* Metric Values — FORCED VISIBILITY */
+.metric-card div:last-child {
+    color: #0f172a !important; /* Force Black/Blue */
+    opacity: 1 !important;
+}
+
+/* Diff Container — LIGHT THEME HIGH CONTRAST */
+.diff-container {
+    background: #ffffff;
+    border-radius: 12px;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.9rem;
+    color: #1e293b;
+    border: 1px solid #cbd5e1;
+    overflow: hidden;
+    margin-top: 1rem;
+}
+.diff-header {
+    background: #f1f5f9;
+    padding: 12px 20px;
+    color: #475569;
+    font-weight: 700;
+    border-bottom: 1px solid #e2e8f0;
+}
+.diff-line { padding: 2px 20px; white-space: pre-wrap; border-left: 4px solid transparent; }
+.diff-line-add { background: #ecfdf5; color: #065f46; border-left-color: #10b981; }
+.diff-line-del { background: #fef2f2; color: #991b1b; border-left-color: #ef4444; }
 
 /* Visibility Fix for Inputs */
 .stTextInput input, .stTextArea textarea, .stSelectbox select {
