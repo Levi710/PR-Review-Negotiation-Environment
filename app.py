@@ -261,22 +261,33 @@ def init_state():
             "done": False
         })
 
+# ─── Initialization ────────────────────────────────────────────────────────────
+def init_state():
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "current_task" not in st.session_state:
+        st.session_state.current_task = None
+    if "api_url_override" not in st.session_state:
+        st.session_state.api_url_override = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+    if "hf_token_override" not in st.session_state:
+        st.session_state.hf_token_override = os.getenv("HF_TOKEN", "")
+
 init_state()
 
 # ─── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     # Onboarding Guide
     with st.expander("❓ Need help finding your API key?", expanded=False):
-        st.markdown("""
+        st.markdown(f"""
+        **Working Models (Free):**
+        - Select any model with **(Free - Ready)** to use our internal credits.
+        
         **For Hugging Face:**
-        1. [Create an API Token](https://huggingface.co/settings/tokens) (Read or Write).
-        2. Copy and paste it into 'Advanced Settings' below.
+        1. [Create an API Token](https://huggingface.co/settings/tokens).
+        2. Paste into 'Advanced Settings'.
         
         **For Groq:**
         1. [Create an API Key](https://console.groq.com/keys).
-        2. Copy and paste it below.
-        
-        **Note:** Select a model first, and the URL will auto-configure!
         """)
 
     # Health Check
@@ -292,27 +303,40 @@ with st.sidebar:
     task_name = st.selectbox("Select Task", TASKS, index=default_task_idx, label_visibility="collapsed")
     
     # Model Selection with Presets
-    MODEL_PRESETS = {
-        "Qwen 2.5 72B (HF)": {"id": "Qwen/Qwen2.5-72B-Instruct", "url": "https://router.huggingface.co/v1"},
-        "Llama 3.1 8B (HF)": {"id": "meta-llama/Llama-3.1-8B-Instruct", "url": "https://router.huggingface.co/v1"},
-        "Gemma 2 9B (HF)": {"id": "google/gemma-2-9b-it", "url": "https://router.huggingface.co/v1"},
-        "Mistral 7B v0.3 (HF)": {"id": "mistralai/Mistral-7B-Instruct-v0.3", "url": "https://router.huggingface.co/v1"},
-        "Llama 3 70B (Groq)": {"id": "llama3-70b-8192", "url": "https://api.groq.com/openai/v1"},
-        "Llama 3 8B (Groq)": {"id": "llama3-8b-8192", "url": "https://api.groq.com/openai/v1"},
-        "Custom (Type ID Below)": {"id": "custom", "url": ""}
-    }
+    MODEL_PRESETS = {}
+    
+    # Highlighting Internal Working Models (Secrets)
+    if os.getenv("gemma4"):
+        MODEL_PRESETS["Gemma 4 31B (Free - Ready)"] = {"id": "google/gemma-4-31b-it", "url": "https://integrate.api.nvidia.com/v1", "token": os.getenv("gemma4")}
+    if os.getenv("nemotron3"):
+        MODEL_PRESETS["Nemotron 3 120B (Free - Ready)"] = {"id": "nvidia/nemotron-3-super-120b-a12b", "url": "https://integrate.api.nvidia.com/v1", "token": os.getenv("nemotron3")}
+    if os.getenv("qwen"):
+        MODEL_PRESETS["Qwen 3.5 122B (Free - Ready)"] = {"id": "qwen/qwen3.5-122b-a10b", "url": "https://integrate.api.nvidia.com/v1", "token": os.getenv("qwen")}
+    
+    # Standard Presets
+    MODEL_PRESETS.update({
+        "Qwen 2.5 72B (HF)": {"id": "Qwen/Qwen2.5-72B-Instruct", "url": "https://router.huggingface.co/v1", "token": None},
+        "Llama 3.1 8B (HF)": {"id": "meta-llama/Llama-3.1-8B-Instruct", "url": "https://router.huggingface.co/v1", "token": None},
+        "Gemma 2 9B (HF)": {"id": "google/gemma-2-9b-it", "url": "https://router.huggingface.co/v1", "token": None},
+        "Llama 3 70B (Groq)": {"id": "llama3-70b-8192", "url": "https://api.groq.com/openai/v1", "token": None},
+        "Custom (Type ID Below)": {"id": "custom", "url": "", "token": None}
+    })
     
     st.markdown('<div class="section-label">Select Model</div>', unsafe_allow_html=True)
     selected_preset = st.selectbox("Model Preset", list(MODEL_PRESETS.keys()), label_visibility="collapsed")
     
     preset_data = MODEL_PRESETS[selected_preset]
+    
+    # Logic to auto-fill tokens and URLs
+    if preset_data["token"]:
+        st.session_state["hf_token_override"] = preset_data["token"]
+    if preset_data["url"]:
+        st.session_state["api_url_override"] = preset_data["url"]
+        
     if preset_data["id"] == "custom":
         model_id = st.text_input("Custom Model ID", value="Qwen/Qwen2.5-72B-Instruct")
     else:
         model_id = preset_data["id"]
-        # Auto-switch URL if it's a known preset
-        if preset_data["url"]:
-            st.session_state["api_url_override"] = preset_data["url"]
 
     # Advanced Settings Expander
     with st.expander("⚙️ Advanced API Settings", expanded=False):
