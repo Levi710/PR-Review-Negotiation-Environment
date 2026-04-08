@@ -243,6 +243,20 @@ init_state()
 
 # ─── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
+    # Onboarding Guide
+    with st.expander("❓ Need help finding your API key?", expanded=False):
+        st.markdown("""
+        **For Hugging Face:**
+        1. [Create an API Token](https://huggingface.co/settings/tokens) (Read or Write).
+        2. Copy and paste it into 'Advanced Settings' below.
+        
+        **For Groq:**
+        1. [Create an API Key](https://console.groq.com/keys).
+        2. Copy and paste it below.
+        
+        **Note:** Select a model first, and the URL will auto-configure!
+        """)
+
     # Health Check
     try:
         h = httpx.get(f"{ENV_BASE_URL}/health", timeout=1)
@@ -252,24 +266,40 @@ with st.sidebar:
         st.sidebar.caption("⚪ API Engine Connecting...")
 
     st.markdown('<div class="section-label">Task Difficulty</div>', unsafe_allow_html=True)
-    task_name = st.selectbox("Select Task", TASKS, label_visibility="collapsed")
+    default_task_idx = TASKS.index(st.session_state.get("selected_task_override", "single-pass-review"))
+    task_name = st.selectbox("Select Task", TASKS, index=default_task_idx, label_visibility="collapsed")
     
-    st.markdown('<div class="section-label">API Base URL</div>', unsafe_allow_html=True)
-    api_url   = st.text_input("URL", value="https://router.huggingface.co/v1", label_visibility="collapsed")
+    # Model Selection with Presets
+    MODEL_PRESETS = {
+        "Qwen 2.5 72B (HF)": {"id": "Qwen/Qwen2.5-72B-Instruct", "url": "https://router.huggingface.co/v1"},
+        "Llama 3.1 8B (HF)": {"id": "meta-llama/Llama-3.1-8B-Instruct", "url": "https://router.huggingface.co/v1"},
+        "Gemma 2 9B (HF)": {"id": "google/gemma-2-9b-it", "url": "https://router.huggingface.co/v1"},
+        "Mistral 7B v0.3 (HF)": {"id": "mistralai/Mistral-7B-Instruct-v0.3", "url": "https://router.huggingface.co/v1"},
+        "Llama 3 70B (Groq)": {"id": "llama3-70b-8192", "url": "https://api.groq.com/openai/v1"},
+        "Llama 3 8B (Groq)": {"id": "llama3-8b-8192", "url": "https://api.groq.com/openai/v1"},
+        "Custom (Type ID Below)": {"id": "custom", "url": ""}
+    }
     
-    st.markdown('<div class="section-label">Model</div>', unsafe_allow_html=True)
-    model_id  = st.text_input("ID", value="Qwen/Qwen2.5-72B-Instruct", label_visibility="collapsed")
+    st.markdown('<div class="section-label">Select Model</div>', unsafe_allow_html=True)
+    selected_preset = st.selectbox("Model Preset", list(MODEL_PRESETS.keys()), label_visibility="collapsed")
     
-    st.markdown('<div class="section-label">HF Token</div>', unsafe_allow_html=True)
-    hf_token  = st.text_input("Token", type="password", value=os.getenv("HF_TOKEN", ""), label_visibility="collapsed")
+    preset_data = MODEL_PRESETS[selected_preset]
+    if preset_data["id"] == "custom":
+        model_id = st.text_input("Custom Model ID", value="Qwen/Qwen2.5-72B-Instruct")
+    else:
+        model_id = preset_data["id"]
+        # Auto-switch URL if it's a known preset
+        if preset_data["url"]:
+            st.session_state["api_url_override"] = preset_data["url"]
 
-    # Groq Auto-Detection
-    is_groq = "groq" in model_id.lower() or (hf_token.startswith("gsk_"))
-    if is_groq and "groq" not in api_url.lower():
-        st.warning("⚠️ Groq detected. Recommended API URL: https://api.groq.com/openai/v1")
-        if st.button("Use Groq API URL"):
-            st.session_state["api_url_override"] = "https://api.groq.com/openai/v1"
-            st.rerun()
+    # Advanced Settings Expander
+    with st.expander("⚙️ Advanced API Settings", expanded=False):
+        st.markdown('<div class="section-label">API Base URL</div>', unsafe_allow_html=True)
+        current_url = st.session_state.get("api_url_override", "https://router.huggingface.co/v1")
+        api_url = st.text_input("URL", value=current_url, label_visibility="collapsed")
+        
+        st.markdown('<div class="section-label">API Token / Key</div>', unsafe_allow_html=True)
+        hf_token = st.text_input("Token", type="password", value=os.getenv("HF_TOKEN", ""), label_visibility="collapsed")
 
     if "api_url_override" in st.session_state:
         api_url = st.session_state["api_url_override"]
@@ -305,7 +335,9 @@ with st.sidebar:
                 "pr_description": custom_desc
             }, timeout=30)
             if r.status_code == 200:
-                st.success("Custom task updated! Select 'custom-review' above and Initialize.")
+                st.session_state["selected_task_override"] = "custom-review"
+                st.success("Custom task updated! Click 'Initialize' below.")
+                st.rerun()
             else:
                 st.error(f"Failed to configure: {r.text}")
         except Exception as e:
@@ -313,7 +345,7 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button("Initialize environment", use_container_width=True):
+    if st.button("Initialize environment", use_container_width=True, type="primary"):
         try:
             r = httpx.post(f"{ENV_BASE_URL}/reset", json={"task_name": task_name}, timeout=30)
             obs = r.json()
