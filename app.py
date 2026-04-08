@@ -249,20 +249,6 @@ def format_diff_html(diff_text: str):
 
 # ─── Session State ────────────────────────────────────────────────────────────
 def init_state():
-    if "initialized" not in st.session_state:
-        st.session_state.update({
-            "initialized": False,
-            "turn": 0,
-            "score": 0.0,
-            "decision": "IDLE",
-            "observation": {},
-            "reward_history": [],
-            "logs": [],
-            "done": False
-        })
-
-# ─── Initialization ────────────────────────────────────────────────────────────
-def init_state():
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "current_task" not in st.session_state:
@@ -273,6 +259,16 @@ def init_state():
         st.session_state.hf_token_override = os.getenv("HF_TOKEN", "")
     if "reward_history" not in st.session_state:
         st.session_state.reward_history = []
+    if "initialized" not in st.session_state:
+        st.session_state.update({
+            "initialized": False,
+            "turn": 0,
+            "score": 0.0,
+            "decision": "IDLE",
+            "observation": {},
+            "logs": [],
+            "done": False
+        })
 
 init_state()
 
@@ -343,14 +339,15 @@ with st.sidebar:
     # Advanced Settings Expander
     with st.expander("⚙️ Advanced API Settings", expanded=False):
         st.markdown('<div class="section-label">API Base URL</div>', unsafe_allow_html=True)
-        current_url = st.session_state.get("api_url_override", "https://router.huggingface.co/v1")
-        api_url = st.text_input("URL", value=current_url, label_visibility="collapsed")
+        api_url = st.text_input("URL", value=st.session_state.get("api_url_override", "https://router.huggingface.co/v1"), key="api_url_input")
+        st.session_state["api_url_override"] = api_url
         
         st.markdown('<div class="section-label">API Token / Key</div>', unsafe_allow_html=True)
-        hf_token = st.text_input("Token", type="password", value=os.getenv("HF_TOKEN", ""), label_visibility="collapsed")
+        hf_token = st.text_input("Token", type="password", value=st.session_state.get("hf_token_override", ""), key="hf_token_input")
+        st.session_state["hf_token_override"] = hf_token
 
-    if "api_url_override" in st.session_state:
-        api_url = st.session_state["api_url_override"]
+    api_url = st.session_state["api_url_override"]
+    hf_token = st.session_state["hf_token_override"]
 
     st.divider()
     st.markdown('<div class="section-label">Custom Review Config</div>', unsafe_allow_html=True)
@@ -411,7 +408,7 @@ with st.sidebar:
         except Exception as e:
             st.error(f"Reset failed: {e}")
 
-    if st.session_state.reward_history:
+    if len(st.session_state.reward_history) > 0:
         st.divider()
         st.markdown('<div class="section-label">Reward History</div>', unsafe_allow_html=True)
         import pandas as pd
@@ -495,5 +492,3 @@ with tab_nego:
 
 with tab_logs:
     st.code("\n".join(st.session_state.logs), language="bash")
-#   R e b u i l d   T r i g g e r  
- 
