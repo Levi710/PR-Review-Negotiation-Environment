@@ -281,18 +281,33 @@ with st.sidebar:
         if preset["token"]: st.session_state.hf_token_override = preset["token"]
         if preset["url"]: st.session_state.api_url_override = preset["url"]
 
-    # Compact Advanced Settings
-    with st.expander("🔑 Access Credentials", expanded=False):
-        api_url = st.text_input("Endpoint URL", value=st.session_state.api_url_override)
-        st.session_state.api_url_override = api_url
-        hf_token = st.text_input("API Token", type="password", value=st.session_state.hf_token_override)
-        st.session_state.hf_token_override = hf_token
-        
-        if st.button("Verify Connection", use_container_width=True):
-            ok, msg = check_api_connectivity(model_id, api_url, hf_token)
-            st.session_state.api_validated = (ok, msg)
-            if ok: st.success(msg)
-            else: st.error(msg)
+    # Advanced Settings Logic: Hide inputs if using internal secrets
+    is_internal = "token" in preset and preset["token"] is not None
+    
+    with st.expander("⚙️ Advanced API Settings", expanded=False):
+        if is_internal:
+            st.info("🔒 Using Secure Internal Connection. Manual editing disabled for this model.")
+            api_url = preset["url"]
+            hf_token = preset["token"]
+            st.markdown(f"**Endpoint:** `{api_url}`")
+            st.markdown("**Token:** `••••••••••••••••` (Internal Secret)")
+        else:
+            st.markdown('<div class="section-label">API Base URL</div>', unsafe_allow_html=True)
+            api_url = st.text_input("URL", value=st.session_state.get("api_url_override", "https://router.huggingface.co/v1"), key="api_url_input")
+            st.session_state["api_url_override"] = api_url
+            
+            st.markdown('<div class="section-label">API Token / Key</div>', unsafe_allow_html=True)
+            hf_token = st.text_input("Token", type="password", value=st.session_state.get("hf_token_override", ""), key="hf_token_input")
+            st.session_state["hf_token_override"] = hf_token
+
+    st.session_state["api_url_override"] = api_url
+    st.session_state["hf_token_override"] = hf_token
+    
+    if st.button("Verify Connection", use_container_width=True):
+        ok, msg = check_api_connectivity(model_id, api_url, hf_token)
+        st.session_state.api_validated = (ok, msg)
+        if ok: st.success(msg)
+        else: st.error(msg)
             
     # Task Loader
     st.markdown('<div class="section-label">Active Scenario</div>', unsafe_allow_html=True)
