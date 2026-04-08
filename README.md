@@ -1,3 +1,12 @@
+---
+title: PR Review Negotiation Environment
+emoji: 🔍
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 # 🔍 PR Review Negotiation Environment (v1.0)
 [![OpenEnv Compliant](https://img.shields.io/badge/OpenEnv-Compliant-blue.svg)](https://github.com/openenv/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
