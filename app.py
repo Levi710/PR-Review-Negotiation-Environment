@@ -132,7 +132,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─── Constants ───────────────────────────────────────────────────────────────
-ENV_BASE_URL = "http://localhost:8000"
+ENV_BASE_URL = "http://localhost:7860"
 TASKS = ["single-pass-review", "iterative-negotiation", "escalation-judgment"]
 
 # ─── Helper Functions ─────────────────────────────────────────────────────────

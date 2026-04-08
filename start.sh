@@ -1,12 +1,13 @@
 #!/bin/bash
 
-# Start the FastAPI backend on port 8000
-echo "Starting FastAPI Backend on port 8000..."
-uvicorn server.app:app --host 0.0.0.0 --port 8000 &
+# Start the Streamlit dashboard internally on port 8501
+echo "Starting Streamlit Dashboard on port 8501..."
+streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true &
 
-# Start the Streamlit dashboard on port 7860 (default HF Spaces port)
-echo "Starting Streamlit Dashboard on port 7860..."
-streamlit run app.py --server.port 7860 --server.address 0.0.0.0 &
+# Start the FastAPI Gateway on the primary port 7860
+# This gateway handles /reset, /step, and proxies everything else to Streamlit
+echo "Starting FastAPI Gateway on port 7860..."
+uvicorn gateway:app --host 0.0.0.0 --port 7860 &
 
 # Wait for all processes to finish
 wait
