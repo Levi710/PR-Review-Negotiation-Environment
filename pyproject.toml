@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pr-review-negotiation-environment"
+version = "1.0.0"
+description = "A multi-turn PR review negotiation environment for RL agents."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Levi710" }]
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "openai",
+    "openenv-core",
+    "httpx",
+    "streamlit",
+    "pandas"
+]
+
+[project.urls]
+Homepage = "https://github.com/Levi710/PR-Review-Negotiation-Environment"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["server*", "models*", "app*"]
