@@ -13,15 +13,36 @@ class ResetRequest(BaseModel):
 class StepRequest(BaseModel):
     action: PRAction
 
+class CustomTaskConfig(BaseModel):
+    diff: str
+    pr_title: Optional[str] = "Custom Review Session"
+    pr_description: Optional[str] = "User-provided code snippet for review."
+
 class StepResponse(BaseModel):
     observation: PRObservation
     reward: float
     done: bool
     info: dict
 
+@app.get("/")
+def index():
+    return {
+        "message": "Backend API is running!",
+        "action": "Visit the dashboard at http://localhost:8501",
+        "api_docs": "/docs"
+    }
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+@app.post("/config/custom")
+def set_custom_task(config: CustomTaskConfig):
+    from server.tasks import custom
+    custom.TASK["diff"] = config.diff
+    custom.TASK["pr_title"] = config.pr_title
+    custom.TASK["pr_description"] = config.pr_description
+    return {"status": "success"}
 
 @app.post("/reset", response_model=PRObservation)
 def reset(req: ResetRequest = ResetRequest()):

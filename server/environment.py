@@ -1,12 +1,13 @@
 import uuid
 from models import PRAction, PRObservation, PRState, ReviewDecision
-from server.tasks import single_pass, iterative, escalation
+from server.tasks import single_pass, iterative, escalation, custom
 from server import graders
 
 TASKS = {
     "single-pass-review": single_pass.TASK,
     "iterative-negotiation": iterative.TASK,
     "escalation-judgment": escalation.TASK,
+    "custom-review": custom.TASK,
 }
 
 class PRReviewEnvironment:

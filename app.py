@@ -128,12 +128,50 @@ st.markdown("""
     text-transform: uppercase !important;
     margin-bottom: 0.5rem !important;
 }
+
+/* Visibility Fixes — Ensures all text is high contrast */
+[data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"], .section-label { 
+    color: #1e293b !important; 
+    font-weight: 700 !important; 
+    text-transform: uppercase !important;
+}
+
+/* Force high contrast for all alert/info boxes */
+.stAlert, [data-testid="stNotification"], [data-testid="stNotificationContent"] {
+    background-color: #ffffff !important; 
+    border: 1px solid #004085 !important;
+}
+
+.stAlert p, .stAlert div, [data-testid="stNotification"] p, [data-testid="stNotification"] div {
+    color: #004085 !important; 
+    font-weight: 600 !important;
+}
+
+/* Primary Button Styling */
+button[kind="primary"] {
+    background-color: #1a7f3c !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 700 !important;
+}
+button[kind="secondary"] {
+    background-color: #f6f8fa !important;
+    color: #24292f !important;
+    border: 1px solid #d0d7de !important;
+    font-weight: 600 !important;
+}
+
+/* Form Field Colors */
+.stTextArea textarea, .stTextInput input, .stSelectbox select {
+    color: #1e293b !important;
+    border: 1px solid #d0d7de !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 # ─── Constants ───────────────────────────────────────────────────────────────
-ENV_BASE_URL = "http://localhost:7860"
-TASKS = ["single-pass-review", "iterative-negotiation", "escalation-judgment"]
+ENV_BASE_URL = "http://localhost:8000"
+TASKS = ["single-pass-review", "iterative-negotiation", "escalation-judgment", "custom-review"]
 
 # ─── Helper Functions ─────────────────────────────────────────────────────────
 def get_agent_action(obs: dict, model_name: str, api_base: str, token: str) -> dict:
@@ -164,8 +202,13 @@ You must respond with EXACTLY this JSON format and nothing else:
 
 def format_diff_html(diff_text: str):
     lines = diff_text.split("\n")
+    filename = "unknown_file"
+    for line in lines:
+        if line.startswith("--- a/"): filename = line.replace("--- a/", "")
+        elif line.startswith("+++ b/"): filename = line.replace("+++ b/", "")
+    
     html_lines = ['<div class="diff-container">']
-    html_lines.append('<div class="diff-header-bar"><span>src/api/users.py</span><span>Active Hunks</span></div>')
+    html_lines.append(f'<div class="diff-header-bar"><span>{filename}</span><span>Active Hunks</span></div>')
     
     for i, line in enumerate(lines):
         if line.startswith("+++") or line.startswith("---"):
@@ -200,6 +243,14 @@ init_state()
 
 # ─── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
+    # Health Check
+    try:
+        h = httpx.get(f"{ENV_BASE_URL}/health", timeout=1)
+        if h.status_code == 200: st.sidebar.caption("🟢 API Engine Online")
+        else: st.sidebar.caption("🔴 API Engine Error")
+    except:
+        st.sidebar.caption("⚪ API Engine Connecting...")
+
     st.markdown('<div class="section-label">Task Difficulty</div>', unsafe_allow_html=True)
     task_name = st.selectbox("Select Task", TASKS, label_visibility="collapsed")
     
@@ -211,6 +262,54 @@ with st.sidebar:
     
     st.markdown('<div class="section-label">HF Token</div>', unsafe_allow_html=True)
     hf_token  = st.text_input("Token", type="password", value=os.getenv("HF_TOKEN", ""), label_visibility="collapsed")
+
+    # Groq Auto-Detection
+    is_groq = "groq" in model_id.lower() or (hf_token.startswith("gsk_"))
+    if is_groq and "groq" not in api_url.lower():
+        st.warning("⚠️ Groq detected. Recommended API URL: https://api.groq.com/openai/v1")
+        if st.button("Use Groq API URL"):
+            st.session_state["api_url_override"] = "https://api.groq.com/openai/v1"
+            st.rerun()
+
+    if "api_url_override" in st.session_state:
+        api_url = st.session_state["api_url_override"]
+
+    st.divider()
+    st.markdown('<div class="section-label">Custom Review Config</div>', unsafe_allow_html=True)
+    custom_title = st.text_input("PR Title", value="Custom Review", key="custom_title")
+    custom_desc = st.text_area("PR Description", value="Reviewing custom code...", key="custom_desc")
+    
+    # Selection for local files
+    all_files = []
+    for root, _, files in os.walk("."):
+        if ".git" in root or "__pycache__" in root: continue
+        for f in files:
+            all_files.append(os.path.join(root, f).replace(".\\", ""))
+    
+    selected_file = st.selectbox("Load from local file", ["-- Select --"] + sorted(all_files))
+    loaded_code = ""
+    if selected_file != "-- Select --":
+        try:
+            with open(selected_file, "r") as f:
+                loaded_code = f.read()
+        except Exception as e:
+            st.error(f"Error loading file: {e}")
+
+    custom_diff = st.text_area("Code to Review", value=loaded_code if loaded_code else "", height=200, key="custom_diff")
+    
+    if st.button("Update Custom Task", use_container_width=True):
+        try:
+            r = httpx.post(f"{ENV_BASE_URL}/config/custom", json={
+                "diff": custom_diff,
+                "pr_title": custom_title,
+                "pr_description": custom_desc
+            }, timeout=30)
+            if r.status_code == 200:
+                st.success("Custom task updated! Select 'custom-review' above and Initialize.")
+            else:
+                st.error(f"Failed to configure: {r.text}")
+        except Exception as e:
+            st.error(f"Connection error: {e}")
 
     st.divider()
 
