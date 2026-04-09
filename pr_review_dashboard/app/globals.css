@@ -212,26 +212,64 @@ body { font-family: var(--font-sans); background: var(--color-background-seconda
 .diff-body {
   padding: 4px 0;
   font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.7;
+  font-size: 13px;
+  line-height: 1.6;
+  background: #0d1117;
 }
 .diff-line {
-  padding: 1px 14px;
+  padding: 0 14px;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   color: #e6edf3;
+  transition: background 0.1s;
 }
+.diff-line:hover { background: rgba(255,255,255,0.03); }
 .diff-line .ln {
   color: #484f58;
-  min-width: 28px;
+  min-width: 32px;
   text-align: right;
   user-select: none;
+  font-size: 12px;
+  border-right: 1px solid transparent;
+  padding-right: 8px;
 }
-.diff-line.add { background: rgba(46, 160, 67, 0.25); color: #aff5b4; border-left: 3px solid #3fb950; }
-.diff-line.add .ln { color: #3fb950; }
-.diff-line.del { background: rgba(248, 81, 73, 0.25); color: #ffa198; border-left: 3px solid #f85149; }
-.diff-line.del .ln { color: #f85149; }
-.diff-line.meta { color: #8b949e; background: #161b22; border-left: 3px solid #30363d; }
+.diff-line.add { background: rgba(63, 185, 80, 0.15); border-left: 2px solid #3fb950; position: relative; }
+.diff-line.del { background: rgba(248, 81, 73, 0.15); border-left: 2px solid #f85149; position: relative; }
+.diff-line.meta { color: #8b949e; background: #161b22; font-style: italic; border-left: 2px solid #30363d; }
+
+/* ── Syntax Tokens ── */
+.tk-kw { color: #ff7b72; font-weight: 500; } /* keyword */
+.tk-fn { color: #d2a8ff; } /* function */
+.tk-st { color: #a5d6ff; } /* string */
+.tk-nm { color: #f2cc60; } /* number */
+.tk-cm { color: #8b949e; font-style: italic; } /* comment */
+.tk-op { color: #79c0ff; } /* operator */
+.tk-cl { color: #ffa657; } /* class/type */
+
+/* ── Inline Action Buttons ── */
+.hunk-actions {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+}
+.diff-line:hover .hunk-actions { opacity: 1; }
+.hunk-btn {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 0.5px solid rgba(255,255,255,0.1);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.hunk-btn.accept { background: #238636; color: white; }
+.hunk-btn.reject { background: #da3633; color: white; }
 
 /* ── Chat Timeline ── */
 .chat-thread { display: flex; flex-direction: column; gap: 12px; }

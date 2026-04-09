@@ -1,6 +1,45 @@
 "use client";
 import { useState, useCallback } from "react";
 
+/**
+ * Lightweight Syntax Highlighter for Python/JS
+ */
+function highlightCode(text) {
+  if (!text) return text;
+  
+  // Order matters for some regexes
+  const rules = [
+    { cls: 'tk-cm', re: /(#.*$|\/\/.*$|\/\*[\s\S]*?\*\/)/gm }, // Comments
+    { cls: 'tk-st', re: /(['"`])(?:(?!\1)[^\\]|\\.)*\1/g },     // Strings
+    { cls: 'tk-kw', re: /\b(def|class|if|else|elif|return|for|while|import|from|with|as|try|except|finally|raise|pass|break|continue|in|is|not|and|or|let|const|var|function|async|await|throw|new|instanceof|catch)\b/g },
+    { cls: 'tk-nm', re: /\b(\d+(\.\d+)?)\b/g },                // Numbers
+    { cls: 'tk-fn', re: /\b([a-zA-Z_]\w*)(?=\s*\()/g },        // Functions
+    { cls: 'tk-cl', re: /\b([A-Z][a-zA-Z0-0_]+)\b/g },        // Classes
+    { cls: 'tk-op', re: /([-+*/%=<>!&|^~]+)/g },               // Operators
+  ];
+
+  let html = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // We use a placeholder approach to prevent nested tags
+  const placeholders = [];
+  rules.forEach((rule, idx) => {
+    html = html.replace(rule.re, (match) => {
+      const id = `__TK_${idx}_${placeholders.length}__`;
+      placeholders.push({ id, html: `<span class="${rule.cls}">${match}</span>` });
+      return id;
+    });
+  });
+
+  placeholders.forEach(p => {
+    html = html.replace(p.id, p.html);
+  });
+
+  return html;
+}
+
 export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted }) {
   const [inputText, setInputText] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
@@ -59,9 +98,7 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
     );
   }
 
-  // ── Strict Diff Rendering Logic ──
   const rawLines = diff.split("\n");
-  
   let filename = "custom_file.py";
   const bodyLines = [];
   
@@ -69,7 +106,7 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
     if (line.startsWith("+++ b/")) {
       filename = line.slice(6);
     } else if (line.startsWith("--- a/") || line.startsWith("--- /") || line.startsWith("+++ /") || line.startsWith("index ")) {
-      continue; // Skip metadata lines
+      continue;
     } else {
       bodyLines.push(line);
     }
@@ -95,7 +132,7 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
       displayNum = "···";
     } else if (line.startsWith("+")) {
       type = "add";
-      text = line.slice(1); // Remove prefix for cleaner look if accepted
+      text = line.slice(1);
       adds++;
       newLineNum++;
       displayNum = newLineNum;
@@ -106,7 +143,6 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
       oldLineNum++;
       displayNum = oldLineNum;
     } else {
-      // Standard Context Line: No background color
       type = "context";
       text = line.startsWith(" ") ? line.slice(1) : line;
       newLineNum++;
@@ -119,22 +155,32 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
 
   return (
     <div className="diff-box">
-      <div className="diff-header">
-        <span style={{ color: isAccepted ? "#2ea043" : "inherit" }}>
+      <div className="diff-header" style={{ borderLeft: '2px solid transparent' }}>
+        <span style={{ color: isAccepted ? "#3fb950" : "inherit" }}>
           {isAccepted ? `✓ ${filename} (Concluded)` : filename}
         </span>
-        <span style={{ fontSize: '10px' }}>
-          {isAccepted ? "CHANGES PERSISTED" : `+${adds} −${dels} lines`}
+        <span style={{ fontSize: '10px', color: '#8b949e' }}>
+          {isAccepted ? "HISTORY PRESERVED" : `+${adds} −${dels} lines`}
         </span>
       </div>
       <div className="diff-body" style={{ minHeight: '400px' }}>
         {parsedLines.map((line, i) => (
           <div key={i} className={`diff-line ${line.type}`}>
             <span className="ln">{line.displayNum}</span>
-            <span>{line.text}</span>
+            <span 
+              className="code-content"
+              dangerouslySetInnerHTML={{ __html: line.type === 'meta' ? line.text : highlightCode(line.text) }} 
+            />
+            
+            {/* Intra-line Action Buttons (Shown on Hover) */}
+            {(line.type === 'add' || line.type === 'del') && !isAccepted && (
+              <div className="hunk-actions">
+                <button className="hunk-btn accept">Accept</button>
+                <button className="hunk-btn reject">Reject</button>
+              </div>
+            )}
           </div>
         ))}
-        {parsedLines.length === 0 && <div style={{ padding: '20px', color: '#8b949e', fontSize: '12px' }}>No code content found.</div>}
       </div>
     </div>
   );
