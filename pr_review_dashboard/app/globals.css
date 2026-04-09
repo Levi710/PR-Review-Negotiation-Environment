@@ -24,7 +24,7 @@ body { font-family: var(--font-sans); background: var(--color-background-seconda
 /* ── Dashboard Grid ── */
 .dash {
   display: grid;
-  grid-template-columns: 240px 1fr;
+  grid-template-columns: 220px 1fr;
   min-height: 100vh;
   gap: 0;
   background: var(--color-background-primary);

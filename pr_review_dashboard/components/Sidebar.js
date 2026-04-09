@@ -2,12 +2,13 @@
 
 export default function Sidebar({
   taskName, setTaskName,
-  apiUrl, setApiUrl,
-  modelId, setModelId,
-  apiKey, setApiKey,
+  presets, selectedPreset, setSelectedPreset,
+  customApiUrl, setCustomApiUrl,
+  customModelId, setCustomModelId,
+  customApiKey, setCustomApiKey,
+  isInternal,
   onInit, initStatus,
   rewards,
-  isInternal,
 }) {
   const TASKS = [
     { value: "single-pass-review", label: "Easy — single pass review" },
@@ -16,47 +17,71 @@ export default function Sidebar({
     { value: "custom-review", label: "Custom — your own code" },
   ];
 
+  const preset = presets[selectedPreset] || presets[0];
+
   return (
     <div className="sidebar">
+      {/* Task selector */}
       <div>
-        <div className="sidebar-label">Scenario</div>
+        <div className="sidebar-label">Task difficulty</div>
         <select value={taskName} onChange={e => setTaskName(e.target.value)}>
           {TASKS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
       </div>
 
-      <div>
-        <div className="sidebar-label">API base URL</div>
-        <input
-          type="text"
-          value={apiUrl}
-          onChange={e => setApiUrl(e.target.value)}
-          disabled={isInternal}
-        />
-      </div>
-
+      {/* Model preset selector */}
       <div>
         <div className="sidebar-label">Model</div>
-        <input
-          type="text"
-          value={modelId}
-          onChange={e => setModelId(e.target.value)}
-        />
+        <select
+          value={selectedPreset}
+          onChange={e => setSelectedPreset(Number(e.target.value))}
+        >
+          {presets.map((p, i) => (
+            <option key={i} value={i}>{p.label}</option>
+          ))}
+        </select>
       </div>
 
+      {/* API URL — shown for non-internal, non-custom */}
+      {!isInternal && (
+        <div>
+          <div className="sidebar-label">API base URL</div>
+          <input
+            type="text"
+            value={preset.id === "custom" ? customApiUrl : preset.url}
+            onChange={e => setCustomApiUrl(e.target.value)}
+            disabled={preset.id !== "custom"}
+          />
+        </div>
+      )}
+
+      {/* Model ID — editable only for custom */}
+      {preset.id === "custom" && (
+        <div>
+          <div className="sidebar-label">Model ID</div>
+          <input
+            type="text"
+            value={customModelId}
+            onChange={e => setCustomModelId(e.target.value)}
+            placeholder="e.g. gpt-4o"
+          />
+        </div>
+      )}
+
+      {/* API Key — hidden for internal presets */}
       {!isInternal && (
         <div>
           <div className="sidebar-label">API Key</div>
           <input
             type="password"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
+            value={customApiKey}
+            onChange={e => setCustomApiKey(e.target.value)}
             placeholder="sk-..."
           />
         </div>
       )}
       {isInternal && (
-        <div className="status-msg info">🔒 Secure internal key active</div>
+        <div className="status-msg info">🔒 Secure key active</div>
       )}
 
       <div className="sep" />
@@ -69,6 +94,7 @@ export default function Sidebar({
         {initStatus === "loading" ? "Initializing…" : initStatus === "ready" ? "Environment ready" : "Initialize environment"}
       </button>
 
+      {/* Reward history at bottom */}
       <div style={{ marginTop: "auto" }}>
         <div className="sidebar-label" style={{ marginBottom: 8 }}>Reward history</div>
         <RewardChart rewards={rewards} />
@@ -81,13 +107,11 @@ function RewardChart({ rewards }) {
   if (!rewards || rewards.length === 0) {
     return <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>No data yet</div>;
   }
-
   const getColor = (val) => {
     if (val >= 0.7) return "#1a7f3c";
     if (val >= 0.4) return "#ef9f27";
     return "#e24b4a";
   };
-
   return (
     <div className="reward-chart">
       {rewards.map((r, i) => (
