@@ -155,7 +155,16 @@ export default function Dashboard({ presets, defaultHfToken }) {
       const obs = await resetEnv("custom-review");
       
       const action = await callAgent({ observation: obs, modelId: activeModelId, apiUrl: activeApiUrl, apiKey: activeApiKey });
-      const result = await stepEnv(action);
+      
+      // --- CRITICAL FIX: Check for error BEFORE submitting to stepEnv ---
+      if (action.decision === "error") throw new Error(action.comment);
+      
+      const result = await stepEnv({
+        decision: action.decision,
+        comment: action.comment,
+        issue_category: action.issue_category || "none"
+      });
+      
       let finalObs = result.observation;
 
       // Generate Auto-Diff if first round identifies issues
