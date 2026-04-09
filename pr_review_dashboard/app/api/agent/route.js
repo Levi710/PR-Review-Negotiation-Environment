@@ -52,16 +52,27 @@ export async function POST(request) {
     raw = raw.trim();
 
     const parsed = JSON.parse(raw);
-    if (!parsed.decision || !parsed.comment) {
-      return Response.json({ decision: "error", comment: "Model returned invalid format." }, { status: 200 });
+    
+    // --- STRICT NORMALIZATION FOR BACKEND VALIDATION ---
+    // Mapping any potential AI variations to the strict Enum [approve, request_changes, escalate]
+    let decision = (parsed.decision || "").toLowerCase();
+    if (decision.includes("approve")) decision = "approve";
+    else if (decision.includes("request") || decision.includes("change")) decision = "request_changes";
+    else if (decision.includes("escalate")) decision = "escalate";
+    else decision = "request_changes"; // Fallback to safe side
+
+    const normalized = {
+      decision: decision,
+      comment: parsed.comment || "No detailed comment provided.",
+      issue_category: parsed.issue_category || "none"
+    };
+
+    // Keep AI proposals for the frontend but ensure they don't break the backend /step call
+    if (parsed.proposed_fix) {
+      normalized.proposed_fix = parsed.proposed_fix;
     }
 
-    // Default issue_category if missing to avoid 422 errors
-    if (!parsed.issue_category) {
-      parsed.issue_category = "none";
-    }
-
-    return Response.json(parsed);
+    return Response.json(normalized);
   } catch (e) {
     return Response.json({ decision: "error", comment: `API Error: ${e.message}` }, { status: 200 });
   }
