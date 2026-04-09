@@ -1,7 +1,7 @@
 "use client";
 import { useState, useCallback } from "react";
 
-export default function DiffView({ diff, onCodeSubmit, isProcessing }) {
+export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted }) {
   const [inputText, setInputText] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -59,9 +59,13 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing }) {
     );
   }
 
-  // ── Existing Diff Rendering Logic ──
+  // ── Intelligent Diff Rendering Logic ──
   const rawLines = diff.trim().split("\n");
-  let filename = "unknown_file";
+  
+  // Heuristic: Is this a snippet or a formal diff?
+  const hasDiffMetadata = rawLines.some(l => l.startsWith("--- ") || l.startsWith("+++ ") || l.startsWith("@@ "));
+  
+  let filename = "custom_file.py";
   for (const line of rawLines) {
     if (line.startsWith("+++ b/")) {
       filename = line.slice(6);
@@ -69,22 +73,21 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing }) {
     }
   }
 
-  const bodyLines = rawLines.filter(
-    (l) => !l.startsWith("--- a/") && !l.startsWith("+++ b/") && !l.startsWith("--- /") && !l.startsWith("+++ /")
-  );
+  const bodyLines = hasDiffMetadata 
+    ? rawLines.filter(l => !l.startsWith("--- ") && !l.startsWith("+++ ") && !l.startsWith("index "))
+    : rawLines;
 
   let adds = 0, dels = 0;
-  bodyLines.forEach((l) => {
-    if (l.startsWith("+") && !l.startsWith("+++")) adds++;
-    if (l.startsWith("-") && !l.startsWith("---")) dels++;
-  });
+  const parsedLines = [];
+  let newLineNum = 0;
+  let oldLineNum = 0;
 
-  let newLineNum = null;
-  let oldLineNum = null;
-  const parsedLines = bodyLines.map((line) => {
+  bodyLines.forEach((line) => {
     let type = "context";
+    let text = line;
     let displayNum = "";
-    if (line.startsWith("@@")) {
+
+    if (hasDiffMetadata && line.startsWith("@@")) {
       type = "meta";
       const match = line.match(/@@ -(\d+),?\d* \+(\d+)/);
       if (match) {
@@ -92,23 +95,46 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing }) {
         newLineNum = parseInt(match[2]) - 1;
       }
       displayNum = "···";
-    } else if (line.startsWith("+")) {
-      type = "add";
-      if (newLineNum !== null) { newLineNum++; displayNum = newLineNum; }
-    } else if (line.startsWith("-")) {
+    } else if (line.startsWith("+") && hasDiffMetadata) {
+      if (isAccepted) {
+        // Show as clean code if accepted
+        type = "context";
+        text = line.slice(1);
+        newLineNum++;
+        displayNum = newLineNum;
+      } else {
+        type = "add";
+        adds++;
+        newLineNum++;
+        displayNum = newLineNum;
+      }
+    } else if (line.startsWith("-") && hasDiffMetadata) {
+      if (isAccepted) {
+        // Hide deletions if accepted
+        return; 
+      }
       type = "del";
-      if (oldLineNum !== null) { oldLineNum++; displayNum = oldLineNum; }
+      dels++;
+      oldLineNum++;
+      displayNum = oldLineNum;
     } else {
-      if (newLineNum !== null) { newLineNum++; oldLineNum++; displayNum = newLineNum; }
+      // Snippet logic: If no metadata, treat everything as active Addition (Green)
+      if (!hasDiffMetadata && !isAccepted) {
+        type = "add";
+        adds++;
+      }
+      newLineNum++;
+      displayNum = newLineNum;
     }
-    return { text: line, type, displayNum };
+
+    parsedLines.push({ text, type, displayNum });
   });
 
   return (
     <div className="diff-box">
       <div className="diff-header">
-        <span>{filename}</span>
-        <span>+{adds} −{dels} lines</span>
+        <span>{isAccepted ? `✓ ${filename} (Merged)` : filename}</span>
+        <span>{isAccepted ? "Final Code" : `+${adds} −${dels} lines`}</span>
       </div>
       <div className="diff-body">
         {parsedLines.map((line, i) => (

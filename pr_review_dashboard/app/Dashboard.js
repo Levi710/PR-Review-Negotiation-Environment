@@ -204,7 +204,10 @@ export default function Dashboard({ presets, defaultHfToken }) {
               <div className="split-view">
                 <div className="split-left">
                   <div className="pane-header">CODE CHANGES</div>
-                  <DiffView diff={observation.diff} />
+                  <DiffView 
+                    diff={observation.diff} 
+                    isAccepted={done && decision === 'APPROVE'}
+                  />
                 </div>
                 <div className="split-right">
                   <div className="pane-header">NEGOTIATION TIMELINE</div>
