@@ -13,7 +13,11 @@ export async function POST(request) {
     const systemPrompt =
       'You are a senior software engineer performing a pull request code review.\n' +
       'Respond with ONLY this JSON (no markdown, no extra text):\n' +
-      '{"decision": "approve|request_changes|escalate", "comment": "your review"}';
+      '{\n' +
+      '  "decision": "approve|request_changes|escalate",\n' +
+      '  "issue_category": "logic|security|performance|correctness|none",\n' +
+      '  "comment": "your detailed review identifying root cause"\n' +
+      '}';
 
     const historyLines = (observation.review_history || [])
       .map(h => `${h.role.toUpperCase()}: ${h.content}`)
@@ -45,6 +49,11 @@ export async function POST(request) {
     const parsed = JSON.parse(raw);
     if (!parsed.decision || !parsed.comment) {
       return Response.json({ decision: "error", comment: "Model returned invalid format." }, { status: 200 });
+    }
+
+    // Default issue_category if missing to avoid 422 errors
+    if (!parsed.issue_category) {
+      parsed.issue_category = "none";
     }
 
     return Response.json(parsed);
