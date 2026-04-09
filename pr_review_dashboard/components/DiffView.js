@@ -23,7 +23,7 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
-        style={{ minHeight: '300px', display: 'flex', flexDirection: 'column', background: '#0d1117' }}
+        style={{ minHeight: '450px', display: 'flex', flexDirection: 'column', background: '#0d1117' }}
       >
         <div className="diff-header" style={{ borderBottom: '1px solid #30363d' }}>
           <span>Ready for Input</span>
@@ -42,7 +42,7 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
               padding: '15px',
               resize: 'none'
             }}
-            placeholder="--- a/example.py\n+++ b/example.py\n@@ -1,1 +1,1 @@\n-old code\n+new code\n\n(Or just paste the new code snippet here)"
+            placeholder="Upload your code here...\n\n(Use + and - prefixes if you want to show specific additions/deletions)"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
           />
@@ -59,23 +59,21 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
     );
   }
 
-  // ── Intelligent Diff Rendering Logic ──
-  const rawLines = diff.trim().split("\n");
-  
-  // Heuristic: Is this a snippet or a formal diff?
-  const hasDiffMetadata = rawLines.some(l => l.startsWith("--- ") || l.startsWith("+++ ") || l.startsWith("@@ "));
+  // ── Strict Diff Rendering Logic ──
+  const rawLines = diff.split("\n");
   
   let filename = "custom_file.py";
+  const bodyLines = [];
+  
   for (const line of rawLines) {
     if (line.startsWith("+++ b/")) {
       filename = line.slice(6);
-      break;
+    } else if (line.startsWith("--- a/") || line.startsWith("--- /") || line.startsWith("+++ /") || line.startsWith("index ")) {
+      continue; // Skip metadata lines
+    } else {
+      bodyLines.push(line);
     }
   }
-
-  const bodyLines = hasDiffMetadata 
-    ? rawLines.filter(l => !l.startsWith("--- ") && !l.startsWith("+++ ") && !l.startsWith("index "))
-    : rawLines;
 
   let adds = 0, dels = 0;
   const parsedLines = [];
@@ -87,7 +85,7 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
     let text = line;
     let displayNum = "";
 
-    if (hasDiffMetadata && line.startsWith("@@")) {
+    if (line.startsWith("@@")) {
       type = "meta";
       const match = line.match(/@@ -(\d+),?\d* \+(\d+)/);
       if (match) {
@@ -95,22 +93,24 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
         newLineNum = parseInt(match[2]) - 1;
       }
       displayNum = "···";
-    } else if (line.startsWith("+") && hasDiffMetadata) {
+    } else if (line.startsWith("+")) {
       type = "add";
+      text = line.slice(1); // Remove prefix for cleaner look if accepted
       adds++;
       newLineNum++;
       displayNum = newLineNum;
-    } else if (line.startsWith("-") && hasDiffMetadata) {
+    } else if (line.startsWith("-")) {
       type = "del";
+      text = line.slice(1);
       dels++;
       oldLineNum++;
       displayNum = oldLineNum;
     } else {
-      // Snippet logic: If no metadata, treat everything as active Addition (Green)
-      // We keep this green even after acceptance to highlight that THIS is the code we reviewed/approved
-      type = "add";
-      adds++;
+      // CONTEXT LINE: No color
+      type = "context";
+      text = line.startsWith(" ") ? line.slice(1) : line;
       newLineNum++;
+      oldLineNum++;
       displayNum = newLineNum;
     }
 
@@ -121,19 +121,20 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
     <div className="diff-box">
       <div className="diff-header">
         <span style={{ color: isAccepted ? "#2ea043" : "inherit" }}>
-          {isAccepted ? "✓ Changes Accepted" : filename}
+          {isAccepted ? `✓ ${filename} (Concluded)` : filename}
         </span>
         <span style={{ fontSize: '10px' }}>
-          {isAccepted ? "HISTORY PRESERVED" : `+${adds} −${dels} lines`}
+          {isAccepted ? "CHANGES PERSISTED" : `+${adds} −${dels} lines`}
         </span>
       </div>
-      <div className="diff-body">
+      <div className="diff-body" style={{ minHeight: '400px' }}>
         {parsedLines.map((line, i) => (
           <div key={i} className={`diff-line ${line.type}`}>
             <span className="ln">{line.displayNum}</span>
             <span>{line.text}</span>
           </div>
         ))}
+        {parsedLines.length === 0 && <div style={{ padding: '20px', color: '#8b949e', fontSize: '12px' }}>No code content found.</div>}
       </div>
     </div>
   );
