@@ -122,6 +122,8 @@ export default function Dashboard({ presets, defaultHfToken }) {
       
       // 3. Reset state for new session
       setObservation(obs);
+      setInitialized(true);
+      setInitStatus("ready");
       setScore(0);
       setTurn(1);
       setMaxTurns(obs.max_turns || 3);
@@ -133,7 +135,6 @@ export default function Dashboard({ presets, defaultHfToken }) {
       addLog("CODE LOADED. Auto-triggering AI Review round...");
       
       // 4. AUTO-START THE REVIEW (The real "One-Push")
-      // We wrap the execute logic because we can't call handleExecute directly due to closure of 'observation'
       const action = await callAgent({
         observation: obs, modelId: activeModelId, apiUrl: activeApiUrl, apiKey: activeApiKey,
       });

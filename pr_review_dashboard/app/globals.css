@@ -64,16 +64,17 @@ body { font-family: var(--font-sans); background: var(--color-background-seconda
   padding: 9px;
   font-size: 13px;
   font-weight: 500;
-  background: var(--color-background-primary);
+  background: #f6f8fa;
   border: 0.5px solid var(--color-border-secondary);
   border-radius: var(--border-radius-md);
-  color: var(--color-text-primary);
+  color: #24292f;
   cursor: pointer;
-  transition: background .15s;
+  transition: all .15s;
   font-family: var(--font-sans);
 }
-.init-btn:hover { background: var(--color-background-tertiary); }
-.init-btn.active { background: #1a7f3c; color: #fff; border-color: #1a7f3c; }
+.init-btn:hover { background: #eff1f3; }
+.init-btn.active { background: #0969da; color: #fff; border-color: #0969da; }
+.init-btn.success { background: #1a7f3c; color: #fff; border-color: #1a7f3c; }
 .init-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ── Main Area ── */
