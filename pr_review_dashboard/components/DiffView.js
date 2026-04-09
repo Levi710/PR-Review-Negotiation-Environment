@@ -9,7 +9,7 @@ export default function DiffView({ diff }) {
     );
   }
 
-  const rawLines = diff.split("\n");
+  const rawLines = diff.trim().split("\n");
 
   // Extract filename from +++ header
   let filename = "unknown_file";
@@ -33,8 +33,8 @@ export default function DiffView({ diff }) {
   });
 
   // Parse lines with proper line numbering
-  let newLineNum = 0;
-  let oldLineNum = 0;
+  let newLineNum = null;
+  let oldLineNum = null;
   const parsedLines = bodyLines.map((line) => {
     let type = "context";
     let displayNum = "";
@@ -50,17 +50,23 @@ export default function DiffView({ diff }) {
       displayNum = "···";
     } else if (line.startsWith("+")) {
       type = "add";
-      newLineNum++;
-      displayNum = newLineNum;
+      if (newLineNum !== null) {
+        newLineNum++;
+        displayNum = newLineNum;
+      }
     } else if (line.startsWith("-")) {
       type = "del";
-      oldLineNum++;
-      displayNum = oldLineNum;
+      if (oldLineNum !== null) {
+        oldLineNum++;
+        displayNum = oldLineNum;
+      }
     } else {
       // Context line — both counters advance
-      newLineNum++;
-      oldLineNum++;
-      displayNum = newLineNum;
+      if (newLineNum !== null) {
+        newLineNum++;
+        oldLineNum++;
+        displayNum = newLineNum;
+      }
     }
 
     return { text: line, type, displayNum };
