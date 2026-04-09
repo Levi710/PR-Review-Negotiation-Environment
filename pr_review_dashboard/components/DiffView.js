@@ -9,41 +9,61 @@ export default function DiffView({ diff }) {
     );
   }
 
-  const lines = diff.split("\n");
+  const rawLines = diff.split("\n");
 
-  // Extract filename
+  // Extract filename from +++ header
   let filename = "unknown_file";
-  for (const line of lines) {
+  for (const line of rawLines) {
     if (line.startsWith("+++ b/")) {
       filename = line.slice(6);
       break;
     }
   }
 
+  // Filter out file header lines (--- a/ and +++ b/) — they go in the header bar
+  const bodyLines = rawLines.filter(
+    (l) => !l.startsWith("--- a/") && !l.startsWith("+++ b/") && !l.startsWith("--- /") && !l.startsWith("+++ /")
+  );
+
   // Count additions/deletions
   let adds = 0, dels = 0;
-  lines.forEach(l => {
+  bodyLines.forEach((l) => {
     if (l.startsWith("+") && !l.startsWith("+++")) adds++;
     if (l.startsWith("-") && !l.startsWith("---")) dels++;
   });
 
-  // Build line numbers
-  let lineNum = 0;
-  const parsedLines = lines.map((line) => {
+  // Parse lines with proper line numbering
+  let newLineNum = 0;
+  let oldLineNum = 0;
+  const parsedLines = bodyLines.map((line) => {
     let type = "context";
+    let displayNum = "";
+
     if (line.startsWith("@@")) {
       type = "meta";
-      const match = line.match(/@@ -\d+,?\d* \+(\d+)/);
-      if (match) lineNum = parseInt(match[1]) - 1;
-    } else if (line.startsWith("+") && !line.startsWith("+++")) {
+      // Parse hunk header: @@ -old,count +new,count @@
+      const match = line.match(/@@ -(\d+),?\d* \+(\d+)/);
+      if (match) {
+        oldLineNum = parseInt(match[1]) - 1;
+        newLineNum = parseInt(match[2]) - 1;
+      }
+      displayNum = "···";
+    } else if (line.startsWith("+")) {
       type = "add";
-      lineNum++;
-    } else if (line.startsWith("-") && !line.startsWith("---")) {
+      newLineNum++;
+      displayNum = newLineNum;
+    } else if (line.startsWith("-")) {
       type = "del";
-    } else if (!line.startsWith("---") && !line.startsWith("+++")) {
-      lineNum++;
+      oldLineNum++;
+      displayNum = oldLineNum;
+    } else {
+      // Context line — both counters advance
+      newLineNum++;
+      oldLineNum++;
+      displayNum = newLineNum;
     }
-    return { text: line, type, num: type === "meta" ? "···" : type === "del" ? "" : lineNum || "" };
+
+    return { text: line, type, displayNum };
   });
 
   return (
@@ -55,7 +75,7 @@ export default function DiffView({ diff }) {
       <div className="diff-body">
         {parsedLines.map((line, i) => (
           <div key={i} className={`diff-line ${line.type}`}>
-            <span className="ln">{line.num}</span>
+            <span className="ln">{line.displayNum}</span>
             <span>{line.text}</span>
           </div>
         ))}
