@@ -7,7 +7,6 @@ import { useState, useCallback } from "react";
 function highlightCode(text) {
   if (!text) return text;
   
-  // Order matters for some regexes
   const rules = [
     { cls: 'tk-cm', re: /(#.*$|\/\/.*$|\/\*[\s\S]*?\*\/)/gm }, // Comments
     { cls: 'tk-st', re: /(['"`])(?:(?!\1)[^\\]|\\.)*\1/g },     // Strings
@@ -18,26 +17,35 @@ function highlightCode(text) {
     { cls: 'tk-op', re: /([-+*/%=<>!&|^~]+)/g },               // Operators
   ];
 
-  let html = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  // 1. First, we identify all tokens and replace them with unique placeholders
+  // This prevents HTML escaping from breaking the regex matching later.
+  const tokens = [];
+  let processed = text;
 
-  // We use a placeholder approach to prevent nested tags
-  const placeholders = [];
-  rules.forEach((rule, idx) => {
-    html = html.replace(rule.re, (match) => {
-      const id = `__TK_${idx}_${placeholders.length}__`;
-      placeholders.push({ id, html: `<span class="${rule.cls}">${match}</span>` });
+  rules.forEach((rule, ruleIdx) => {
+    processed = processed.replace(rule.re, (match) => {
+      const id = `__TOKEN_${ruleIdx}_${tokens.length}__`;
+      tokens.push({ id, html: `<span class="${rule.cls}">${match}</span>` });
       return id;
     });
   });
 
-  placeholders.forEach(p => {
-    html = html.replace(p.id, p.html);
-  });
+  // 2. Now escape the remaining text (non-tokens) for HTML safety
+  let finalHtml = processed
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 
-  return html;
+  // 3. Put the highlighted tokens back into the escaped string
+  // We go backwards to handle any nested-like replacements (though regexes here are flat)
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const t = tokens[i];
+    // We need to make sure the token HTML itself is not escaped in step 2.
+    // Since we used IDs like __TOKEN... they are safe.
+    finalHtml = finalHtml.replace(t.id, t.html);
+  }
+
+  return finalHtml;
 }
 
 export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted }) {
@@ -172,7 +180,6 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
               dangerouslySetInnerHTML={{ __html: line.type === 'meta' ? line.text : highlightCode(line.text) }} 
             />
             
-            {/* Intra-line Action Buttons (Shown on Hover) */}
             {(line.type === 'add' || line.type === 'del') && !isAccepted && (
               <div className="hunk-actions">
                 <button className="hunk-btn accept">Accept</button>
