@@ -42,7 +42,7 @@ export async function POST(request) {
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      max_tokens: 500,
+      max_tokens: 1500,
       temperature: 0.1,
     });
 
