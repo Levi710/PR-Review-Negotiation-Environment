@@ -1,11 +1,9 @@
-import { cookies } from "next/headers";
 import Dashboard from "./Dashboard";
 
-/**
- * Server component that reads environment variables and passes them
- * to the client Dashboard as initial props. This way secrets
- * like gemma4/nemotron3 are detected server-side.
- */
+// CRITICAL: Must be dynamic so env vars (gemma4, nemotron3, HF_TOKEN)
+// are read at RUNTIME, not at Docker build time when secrets don't exist.
+export const dynamic = "force-dynamic";
+
 export default async function Page() {
   // Detect which internal models are available
   const presets = [];
