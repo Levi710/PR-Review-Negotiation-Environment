@@ -8,7 +8,7 @@ import DiffView from "@/components/DiffView";
 import Timeline from "@/components/Timeline";
 import ManualOverride from "@/components/ManualOverride";
 import LogBox from "@/components/LogBox";
-import { resetEnv, stepEnv, callAgent } from "@/lib/api";
+import { resetEnv, stepEnv, callAgent, configCustom } from "@/lib/api";
 
 export default function Dashboard({ presets, defaultHfToken }) {
   // ── Config state ──
@@ -17,6 +17,9 @@ export default function Dashboard({ presets, defaultHfToken }) {
   const [customApiUrl, setCustomApiUrl] = useState("");
   const [customApiKey, setCustomApiKey] = useState(defaultHfToken || "");
   const [taskName, setTaskName] = useState("single-pass-review");
+  const [customDiff, setCustomDiff] = useState("");
+  const [customTitle, setCustomTitle] = useState("Custom Review Session");
+  const [customDesc, setCustomDesc] = useState("User-provided code snippet for review.");
 
   // Derived from selected preset
   const preset = presets[selectedPreset] || presets[0];
@@ -50,6 +53,14 @@ export default function Dashboard({ presets, defaultHfToken }) {
     setInitStatus("loading");
     addLog(`Resetting: ${taskName}`);
     try {
+      // If custom, first send the config
+      if (taskName === "custom-review") {
+        if (!customDiff.trim()) {
+          throw new Error("Please provide a code diff for custom review.");
+        }
+        await configCustom({ diff: customDiff, pr_title: customTitle, pr_description: customDesc });
+      }
+
       const obs = await resetEnv(taskName);
       setObservation(obs);
       setInitialized(true);
@@ -130,6 +141,9 @@ export default function Dashboard({ presets, defaultHfToken }) {
     <div className="dash">
       <Sidebar
         taskName={taskName} setTaskName={setTaskName}
+        customDiff={customDiff} setCustomDiff={setCustomDiff}
+        customTitle={customTitle} setCustomTitle={setCustomTitle}
+        customDesc={customDesc} setCustomDesc={setCustomDesc}
         presets={presets}
         selectedPreset={selectedPreset} setSelectedPreset={setSelectedPreset}
         customApiUrl={customApiUrl} setCustomApiUrl={setCustomApiUrl}

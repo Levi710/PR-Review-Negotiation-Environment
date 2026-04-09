@@ -2,6 +2,9 @@
 
 export default function Sidebar({
   taskName, setTaskName,
+  customDiff, setCustomDiff,
+  customTitle, setCustomTitle,
+  customDesc, setCustomDesc,
   presets, selectedPreset, setSelectedPreset,
   customApiUrl, setCustomApiUrl,
   customModelId, setCustomModelId,
@@ -28,6 +31,39 @@ export default function Sidebar({
           {TASKS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
       </div>
+
+      {/* Custom Task Inputs — Only for Custom Review */}
+      {taskName === "custom-review" && (
+        <>
+          <div>
+            <div className="sidebar-label">PR Title</div>
+            <input
+              type="text"
+              value={customTitle}
+              onChange={e => setCustomTitle(e.target.value)}
+              placeholder="Fix widget logic..."
+            />
+          </div>
+          <div>
+            <div className="sidebar-label">PR Description</div>
+            <textarea
+              style={{ minHeight: "60px" }}
+              value={customDesc}
+              onChange={e => setCustomDesc(e.target.value)}
+              placeholder="Explain the changes..."
+            />
+          </div>
+          <div>
+            <div className="sidebar-label">Custom Diff (write here)</div>
+            <textarea
+              style={{ minHeight: "120px", fontFamily: "var(--font-mono)", fontSize: "11px" }}
+              value={customDiff}
+              onChange={e => setCustomDiff(e.target.value)}
+              placeholder="--- a/file.py\n+++ b/file.py\n@@ -1,1 +1,1 @@\n-old\n+new"
+            />
+          </div>
+        </>
+      )}
 
       {/* Model preset selector */}
       <div>
