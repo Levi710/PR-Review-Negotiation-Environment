@@ -106,8 +106,13 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
       oldLineNum++;
       displayNum = oldLineNum;
     } else {
-      // CONTEXT LINE: No color
-      type = "context";
+      // Snippet logic: If no metadata (+/-), treat as Add (Green) during review
+      // This provides the 'clear picture' of what code is being proposed.
+      const hasMetadata = rawLines.some(l => l.startsWith("+") || l.startsWith("-") || l.startsWith("@@"));
+      if (!hasMetadata) {
+        type = "add";
+        adds++;
+      }
       text = line.startsWith(" ") ? line.slice(1) : line;
       newLineNum++;
       oldLineNum++;
