@@ -75,7 +75,7 @@ export default function Dashboard({ presets, defaultHfToken }) {
       setRewards(prev => [...prev, result.reward]);
       setDone(result.done);
       setDecision(dec.toUpperCase());
-      if (!result.done) setTurn(prev => prev + 1);
+      setTurn(result.observation.turn); 
       addLog(`VERDICT APPLIED: reward=${result.reward.toFixed(2)} done=${result.done}`);
     } catch (e) {
       setError(e.message);
@@ -102,7 +102,7 @@ export default function Dashboard({ presets, defaultHfToken }) {
       setRewards(prev => [...prev, result.reward]);
       setDone(result.done);
       setDecision(action.decision.toUpperCase());
-      if (!result.done) setTurn(prev => prev + 1);
+      setTurn(result.observation.turn);
       addLog(`STEP SUCCESS: reward=${result.reward.toFixed(2)}`);
     } catch (e) {
       setError(e.message);
@@ -149,6 +149,7 @@ export default function Dashboard({ presets, defaultHfToken }) {
       setScore(result.reward);
       setRewards([result.reward]);
       setDone(result.done);
+      setTurn(result.observation.turn); // Fix: Sync directly with backend
       setDecision(action.decision.toUpperCase());
       addLog(`AI REVIEW COMPLETE. Check results below.`);
     } catch (e) {
