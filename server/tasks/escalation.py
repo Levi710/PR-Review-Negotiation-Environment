@@ -31,6 +31,6 @@ TASK = {
     },
     "max_turns": 2,
     "author_responses": [
-        "Added a TODO to fix this later:\\n```python\\n# TODO: move to env var before prod\\nsecret = 'supersecret'\\n```\\nWe can clean this up in the next sprint.",
+        "Added a TODO to fix this later:\\n```python\\ndef generate_token(user_id: int) -> str:\\n    # TODO: move to env var before prod\\n    secret = 'supersecret'\\n    payload = {'user_id': user_id, 'exp': time.time() + 3600}\\n    return jwt.encode(payload, secret, algorithm='HS256')\\n```\\nWe can clean this up in the next sprint.",
     ]
 }

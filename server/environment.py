@@ -1,4 +1,6 @@
 import uuid
+import difflib
+import re
 from models import PRAction, PRObservation, PRState, ReviewDecision
 from server.tasks import single_pass, iterative, escalation, custom
 from server import graders
@@ -15,10 +17,57 @@ class PRReviewEnvironment:
         self._state = None
         self._task = None
         self._rewards = []
+        self._current_diff = ""
+        self._initial_diff = ""
+
+    def _extract_code(self, text: str) -> str:
+        """Extracts python code from markdown triple backticks if present."""
+        match = re.search(r"```python\n(.*?)\n```", text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        # Fallback to any backticks
+        match = re.search(r"```\n(.*?)\n```", text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        return None
+
+    def _generate_unified_diff(self, old_code: str, new_code: str, filename: str = "file.py") -> str:
+        """Generates a standard unified diff string between two versions of code."""
+        old_lines = old_code.splitlines(keepends=True)
+        new_lines = new_code.splitlines(keepends=True)
+        diff = difflib.unified_diff(
+            old_lines, new_lines, 
+            fromfile=f"a/{filename}", tofile=f"b/{filename}"
+        )
+        return "".join(diff)
+
+    def _get_base_code(self, diff_text: str) -> str:
+        """Heuristic to extract the 'result' of a diff or just the text if it's a snippet."""
+        if not any(x in diff_text for x in ["--- ", "+++ ", "@@ "]):
+            return diff_text.strip()
+        
+        # If it's a real diff, we try to reconstruct the NEW state (all context + all additions)
+        lines = diff_text.splitlines()
+        result_lines = []
+        for l in lines:
+            if l.startswith("--- ") or l.startswith("+++ ") or l.startswith("@@ ") or l.startswith("index "):
+                continue
+            if l.startswith("-"):
+                continue
+            if l.startswith("+"):
+                result_lines.append(l[1:])
+            elif l.startswith(" "):
+                result_lines.append(l[1:])
+            else:
+                result_lines.append(l)
+        return "\n".join(result_lines).strip()
 
     def reset(self, task_name: str = "single-pass-review") -> PRObservation:
         self._task = TASKS[task_name]
         self._rewards = []
+        self._initial_diff = self._task["diff"]
+        self._current_diff = self._task["diff"]
+        
         self._state = PRState(
             episode_id=str(uuid.uuid4()),
             task_name=task_name,
@@ -31,7 +80,7 @@ class PRReviewEnvironment:
         )
         return PRObservation(
             turn=0,
-            diff=self._task["diff"],
+            diff=self._current_diff,
             pr_title=self._task["pr_title"],
             pr_description=self._task["pr_description"],
             review_history=[],
@@ -49,12 +98,10 @@ class PRReviewEnvironment:
         gt = task["ground_truth"]
         turn = t.turn + 1
 
-        # Determine correct decision for this turn
         correct_key = f"correct_decision_turn_{turn}" if f"correct_decision_turn_{turn}" in gt else "correct_decision"
         correct_decision = gt.get(correct_key, gt.get("correct_decision", "request_changes"))
 
         author_responses = task.get("author_responses", [])
-        # Bug is only genuinely fixed on the last author response
         is_final_author_response = (turn > len(author_responses))
         bug_still_present = not is_final_author_response
 
@@ -75,7 +122,6 @@ class PRReviewEnvironment:
         t.turn = turn
         t.review_history.append({"role": "reviewer", "content": f"[{action.decision.value}] {action.comment}"})
 
-        # Check done
         done = (
             turn >= task["max_turns"]
             or action.decision == ReviewDecision.APPROVE
@@ -83,11 +129,17 @@ class PRReviewEnvironment:
         )
         t.done = done
 
-        # Author interaction
         author_resp = None
         if not done and turn <= len(author_responses):
             author_resp = author_responses[turn - 1]
             t.review_history.append({"role": "author", "content": author_resp})
+            
+            # --- DYNAMIC DIFF INJECTION ---
+            proposed_fix = self._extract_code(author_resp)
+            if proposed_fix:
+                # Compare the fix against the INITIAL buggy state to generate a fresh Red/Green diff
+                base_code = self._get_base_code(self._initial_diff)
+                self._current_diff = self._generate_unified_diff(base_code, proposed_fix)
 
         if done:
             final_score = graders.compute_final_score(self._rewards, task["max_turns"])
@@ -98,7 +150,7 @@ class PRReviewEnvironment:
 
         return PRObservation(
             turn=turn,
-            diff=task["diff"],
+            diff=self._current_diff,
             pr_title=task["pr_title"],
             pr_description=task["pr_description"],
             review_history=list(t.review_history),

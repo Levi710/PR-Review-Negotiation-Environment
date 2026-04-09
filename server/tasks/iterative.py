@@ -13,8 +13,8 @@ TASK = {
     "ground_truth": {
         "bug_type": "security",
         "correct_decision_turn_1": "request_changes",
-        "correct_decision_turn_2": "request_changes",  # try/except is not a fix
-        "correct_decision_turn_3": "approve",           # parameterized query is a real fix
+        "correct_decision_turn_2": "request_changes",
+        "correct_decision_turn_3": "approve",
         "root_cause_keywords": [
             "sql injection", "string concatenation", "parameterized",
             "prepared statement", "user input in query", "raw sql",
@@ -27,7 +27,7 @@ TASK = {
     },
     "max_turns": 3,
     "author_responses": [
-        "Added more sanitization and error handling:\\n```python\\ntry:\\n    bio = bio.strip()\\n    db.execute(\\\"UPDATE users SET bio = '\\\" + bio + \\\"' WHERE id = \\\" + str(user_id))\\nexcept Exception as e:\\n    return {\\\"error\\\": str(e)}\\n```\\nThis should handle any bad inputs now.",
-        "Switched to parameterized query as suggested:\\n```python\\nbio = bio.strip()\\ndb.execute(\\\"UPDATE users SET bio = ? WHERE id = ?\\\", (bio, user_id))\\n```",
+        "Added more sanitization and error handling:\\n```python\\ndef update_bio(user_id: int, bio: str):\\n    try:\\n        bio = bio.strip()\\n        db.execute(\\\"UPDATE users SET bio = '\\\" + bio + \\\"' WHERE id = \\\" + str(user_id))\\n        return {\\\"status\\\": \\\"updated\\\"}\\n    except Exception as e:\\n        return {\\\"error\\\": str(e)}\\n```\\nThis should handle any bad inputs now.",
+        "Switched to parameterized query as suggested:\\n```python\\ndef update_bio(user_id: int, bio: str):\\n    bio = bio.strip()\\n    db.execute(\\\"UPDATE users SET bio = ? WHERE id = ?\\\", (bio, user_id))\\n    return {\\\"status\\\": \\\"updated\\\"}\\n```",
     ]
 }
