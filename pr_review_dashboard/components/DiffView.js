@@ -48,7 +48,7 @@ function highlightCode(text) {
   return finalHtml;
 }
 
-export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted }) {
+export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted, isAiProposal, onApplyFix }) {
   const [inputText, setInputText] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -163,13 +163,24 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
 
   return (
     <div className="diff-box">
-      <div className="diff-header" style={{ borderLeft: '2px solid transparent' }}>
-        <span style={{ color: isAccepted ? "#3fb950" : "inherit" }}>
-          {isAccepted ? `✓ ${filename} (Concluded)` : filename}
+      <div className="diff-header" style={{ borderLeft: isAiProposal ? '4px solid #ff7b72' : '2px solid transparent' }}>
+        <span style={{ color: isAccepted ? "#3fb950" : isAiProposal ? "#ff7b72" : "inherit" }}>
+          {isAccepted ? `✓ ${filename} (Concluded)` : isAiProposal ? `⚠️ AI PROPOSAL: ${filename}` : filename}
         </span>
-        <span style={{ fontSize: '10px', color: '#8b949e' }}>
-          {isAccepted ? "HISTORY PRESERVED" : `+${adds} −${dels} lines`}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '10px', color: '#8b949e' }}>
+            {isAccepted ? "HISTORY PRESERVED" : `+${adds} −${dels} lines`}
+          </span>
+          {isAiProposal && onApplyFix && (
+            <button 
+              className="hunk-btn accept" 
+              onClick={onApplyFix}
+              style={{ fontSize: '9px', padding: '2px 8px' }}
+            >
+              Apply AI Suggestion →
+            </button>
+          )}
+        </div>
       </div>
       <div className="diff-body" style={{ minHeight: '400px' }}>
         {parsedLines.map((line, i) => (

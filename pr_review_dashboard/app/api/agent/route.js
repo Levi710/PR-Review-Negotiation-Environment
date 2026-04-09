@@ -10,14 +10,19 @@ export async function POST(request) {
 
     const client = new OpenAI({ baseURL: apiUrl, apiKey: apiKey });
 
-    const systemPrompt =
-      'You are a senior software engineer performing a pull request code review.\n' +
-      'Respond with ONLY this JSON (no markdown, no extra text):\n' +
-      '{\n' +
-      '  "decision": "approve|request_changes|escalate",\n' +
-      '  "issue_category": "logic|security|performance|correctness|none",\n' +
-      '  "comment": "your detailed review identifying root cause"\n' +
-      '}';
+    const systemPrompt = `You are a Senior Software Engineer conducting a thorough Pull Request review.
+    Your goal is to evaluate the provided diff and issue a verdict: [approve], [request_changes], or [escalate].
+    
+    CRITICAL: 
+    1. Focus on root causes (e.g., SQL injection, Race conditions, Logic errors), not just style.
+    2. If you issue [request_changes], you MUST include a "Proposed Fix" code block (using \`\`\`python) that shows the full CORRECTED version of the logic you are criticizing.
+    
+    RESPONSE FORMAT (VALID JSON):
+    {
+      "decision": "approve" | "request_changes" | "escalate",
+      "comment": "Detailed technical feedback here. Mention specific line numbers and root causes.",
+      "issue_category": "security" | "logic" | "performance" | "style" | "none"
+    }`;
 
     const historyLines = (observation.review_history || [])
       .map(h => `${h.role.toUpperCase()}: ${h.content}`)

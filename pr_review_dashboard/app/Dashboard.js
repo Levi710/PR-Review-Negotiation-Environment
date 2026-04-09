@@ -28,6 +28,7 @@ export default function Dashboard({ presets, defaultHfToken }) {
   const [initialized, setInitialized] = useState(false);
   const [initStatus, setInitStatus] = useState("idle");
   const [observation, setObservation] = useState({});
+  const [originalCode, setOriginalCode] = useState(""); // Track the user's base code
   const [score, setScore] = useState(0);
   const [turn, setTurn] = useState(0);
   const [maxTurns, setMaxTurns] = useState(3);
@@ -42,11 +43,32 @@ export default function Dashboard({ presets, defaultHfToken }) {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   }, []);
 
-  // ── Initialize (System Check) ──
+  // ── Helper: Fetch Diff from Backend ──
+  const getVisualDiff = async (oldCode, newCode) => {
+    try {
+      const resp = await fetch("/api/diff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ old_code: oldCode, new_code: newCode })
+      });
+      const data = await resp.json();
+      return data.diff;
+    } catch (e) {
+      console.error("Diff generation failed", e);
+      return null;
+    }
+  };
+
+  // ── Helper: Extract Code Block from AI response ──
+  const extractProposedFix = (text) => {
+    const match = text.match(/```python\n([\s\S]*?)\n```/);
+    return match ? match[1] : null;
+  };
+
+  // ── Initialize ──
   const handleInit = useCallback(async () => {
     setError(null);
     setInitStatus("loading");
-    addLog(`System Connection Test: ${activeModelId}`);
     try {
       await resetEnv(taskName);
       setInitialized(true);
@@ -55,179 +77,146 @@ export default function Dashboard({ presets, defaultHfToken }) {
     } catch (e) {
       setError(`Connection Failed: ${e.message}`);
       setInitStatus("idle");
-      addLog(`CONNECTION ERROR: ${e.message}`);
     }
-  }, [taskName, activeModelId, addLog]);
+  }, [taskName, addLog]);
 
   // ── Manual Decision ──
   const handleManual = useCallback(async ({ decision: dec, comment }) => {
     if (done) return;
     setError(null);
-    addLog(`User Decision: ${dec}`);
     try {
-      const result = await stepEnv({ 
-        decision: dec, 
-        comment: comment || "Manual verdict.",
-        issue_category: "none" // Default for manual verdicts
-      });
+      const result = await stepEnv({ decision: dec, comment: comment || "Manual verdict.", issue_category: "none" });
       setObservation(result.observation);
       setScore(prev => prev + result.reward);
       setRewards(prev => [...prev, result.reward]);
       setDone(result.done);
       setDecision(dec.toUpperCase());
       setTurn(result.observation.turn); 
-      addLog(`VERDICT APPLIED: reward=${result.reward.toFixed(2)} done=${result.done}`);
-    } catch (e) {
-      setError(e.message);
-      addLog(`VERDICT ERROR: ${e.message}`);
-    }
-  }, [done, addLog]);
+    } catch (e) { setError(e.message); }
+  }, [done]);
 
-  // ── Execute AI Round ──
+  // ── Execute AI Round (with Auto-Diff logic) ──
   const handleExecute = useCallback(async () => {
     if (done || isThinking) return;
     setError(null);
     setIsThinking(true);
-    addLog(`Requesting AI Analysis (${activeModelId})...`);
+    addLog(`AI reviewing current state...`);
     try {
-      const action = await callAgent({
-        observation, modelId: activeModelId, apiUrl: activeApiUrl, apiKey: activeApiKey,
-      });
+      const action = await callAgent({ observation, modelId: activeModelId, apiUrl: activeApiUrl, apiKey: activeApiKey });
       if (action.decision === "error") throw new Error(action.comment);
       
-      addLog(`AI Feedback Received: ${action.decision}`);
       const result = await stepEnv(action);
-      setObservation(result.observation);
+      let updatedObs = result.observation;
+
+      // --- AUTO-DIFF ENHANCEMENT ---
+      // If AI requested changes and provided a fix, we generate a visual diff automatically!
+      if (action.decision === "request_changes") {
+        const fix = extractProposedFix(action.comment);
+        if (fix && originalCode) {
+          const aiDiff = await getVisualDiff(originalCode, fix);
+          if (aiDiff) {
+            updatedObs = { ...updatedObs, diff: aiDiff, isAiProposal: true, proposedCode: fix };
+            addLog("AI generated a visual proposal. View the 'Code Changes' tab.");
+          }
+        }
+      }
+
+      setObservation(updatedObs);
       setScore(prev => prev + result.reward);
       setRewards(prev => [...prev, result.reward]);
       setDone(result.done);
       setDecision(action.decision.toUpperCase());
       setTurn(result.observation.turn);
-      addLog(`STEP SUCCESS: reward=${result.reward.toFixed(2)}`);
-    } catch (e) {
-      setError(e.message);
-      addLog(`AI ERROR: ${e.message}`);
-    } finally {
-      setIsThinking(false);
-    }
-  }, [done, isThinking, observation, activeModelId, activeApiUrl, activeApiKey, addLog]);
+    } catch (e) { setError(e.message); }
+    finally { setIsThinking(false); }
+  }, [done, isThinking, observation, originalCode, activeModelId, activeApiUrl, activeApiKey, addLog]);
 
-  // ── Handle Code Submission (The One-Push Trigger) ──
+  // ── Apply AI Suggestion (Zero-effort update) ──
+  const handleApplyFix = useCallback(async () => {
+    if (!observation.proposedCode) return;
+    addLog("Applying AI fix to working code...");
+    try {
+      // Re-configure the scenario with the new code
+      await configCustom({ diff: observation.proposedCode, pr_title: customTitle, pr_description: customDesc });
+      // Reset the current view to show the 'Clean' version of the fix
+      setOriginalCode(observation.proposedCode);
+      setObservation(prev => ({ ...prev, diff: observation.proposedCode, isAiProposal: false }));
+      addLog("Fix applied. You can now start another review round if needed.");
+    } catch (e) { setError(e.message); }
+  }, [observation, customTitle, customDesc, addLog]);
+
+  // ── One-Push Implementation ──
   const handleCodeSubmit = useCallback(async (code) => {
     setError(null);
     setIsThinking(true);
-    addLog("PHASE 2: Parsing submitted code...");
+    setOriginalCode(code); // Store the base code
     try {
-      // 1. Configure the scenario
       await configCustom({ diff: code, pr_title: customTitle, pr_description: customDesc });
-      
-      // 2. Initialize the specific environment
       const obs = await resetEnv("custom-review");
       
-      // 3. Reset state for new session
-      setObservation(obs);
-      setInitialized(true);
-      setInitStatus("ready");
-      setScore(0);
-      setTurn(1);
-      setMaxTurns(obs.max_turns || 3);
-      setDone(false);
-      setDecision("IDLE");
-      setRewards([]);
-      setTaskName("custom-review");
-      
-      addLog("CODE LOADED. Auto-triggering AI Review round...");
-      
-      // 4. AUTO-START THE REVIEW (The real "One-Push")
-      const action = await callAgent({
-        observation: obs, modelId: activeModelId, apiUrl: activeApiUrl, apiKey: activeApiKey,
-      });
-      if (action.decision === "error") throw new Error(action.comment);
-      
+      const action = await callAgent({ observation: obs, modelId: activeModelId, apiUrl: activeApiUrl, apiKey: activeApiKey });
       const result = await stepEnv(action);
-      setObservation(result.observation);
-      setScore(result.reward);
-      setRewards([result.reward]);
-      setDone(result.done);
-      setTurn(result.observation.turn); // Fix: Sync directly with backend
-      setDecision(action.decision.toUpperCase());
-      addLog(`AI REVIEW COMPLETE. Check results below.`);
-    } catch (e) {
-      setError(e.message);
-      addLog(`SESSION ERROR: ${e.message}`);
-    } finally {
-      setIsThinking(false);
-    }
+      let finalObs = result.observation;
+
+      // Generate Auto-Diff if first round identifies issues
+      if (action.decision === "request_changes") {
+        const fix = extractProposedFix(action.comment);
+        if (fix) {
+          const aiDiff = await getVisualDiff(code, fix);
+          if (aiDiff) finalObs = { ...finalObs, diff: aiDiff, isAiProposal: true, proposedCode: fix };
+        }
+      }
+
+      setObservation(finalObs);
+      setInitialized(true); setInitStatus("ready");
+      setScore(result.reward); setTurn(result.observation.turn);
+      setMaxTurns(obs.max_turns || 3); setDone(false);
+      setDecision(action.decision.toUpperCase()); setRewards([result.reward]);
+      setTaskName("custom-review");
+    } catch (e) { setError(e.message); }
+    finally { setIsThinking(false); }
   }, [customTitle, customDesc, activeModelId, activeApiUrl, activeApiKey, addLog]);
-
-  const epStatus = !initialized ? "Offline" : done ? "Reviewed" : "Active";
-  const epSub = !initialized ? "Waiting for system check" : done ? "History saved" : isThinking ? "Reviewer processing..." : "Awaiting decision";
-  const prSub = initialized ? `${taskName} · Session Progress` : "Connect to begin";
-
-  // Decision state for TopBar
-  const currentDecision = decision;
 
   return (
     <div className="dash">
-      <Sidebar
-        taskName={taskName} setTaskName={setTaskName}
-        presets={presets}
+      <Sidebar 
+        taskName={taskName} setTaskName={setTaskName} presets={presets}
         selectedPreset={selectedPreset} setSelectedPreset={setSelectedPreset}
         customApiUrl={customApiUrl} setCustomApiUrl={setCustomApiUrl}
         customModelId={customModelId} setCustomModelId={setCustomModelId}
         customApiKey={customApiKey} setCustomApiKey={setCustomApiKey}
-        isInternal={isInternal}
-        onInit={handleInit}
-        initStatus={initStatus}
-        rewards={rewards}
-        customTitle={customTitle} setCustomTitle={setCustomTitle}
+        isInternal={isInternal} onInit={handleInit} initStatus={initStatus}
+        rewards={rewards} customTitle={customTitle} setCustomTitle={setCustomTitle}
         customDesc={customDesc} setCustomDesc={setCustomDesc}
       />
       <div className="main">
-        <TopBar
-          title={observation.pr_title || "PR Review Command Center"}
-          subtitle={prSub}
-          decision={currentDecision}
-        />
-        <MetricCards score={score} turn={turn} maxTurns={maxTurns} status={epStatus} statusSub={epSub} />
-        
+        <TopBar title={observation.pr_title || "PR Review Command Center"} subtitle={initialized ? `${taskName} · Session Progress` : "Connect to begin"} decision={decision} />
+        <MetricCards score={score} turn={turn} maxTurns={maxTurns} status={!initialized ? "Offline" : done ? "Reviewed" : "Active"} statusSub={done ? "History saved" : isThinking ? "Reviewer processing..." : "Awaiting decision"} />
         <div className="content unified-workspace">
           {error && <div className="status-msg error">{error}</div>}
-          
           <div className="workspace-layout">
-            {/* Stage 1: The Input Panel (Visible when no code loaded) */}
             {(!observation.diff || !initialized) ? (
               <div className="full-width-input">
-                <DiffView 
-                  diff={null} 
-                  onCodeSubmit={handleCodeSubmit}
-                  isProcessing={isThinking} 
-                />
+                <DiffView diff={null} onCodeSubmit={handleCodeSubmit} isProcessing={isThinking} />
               </div>
             ) : (
-              /* Stage 2 & 3: Parallel Review View */
               <div className="split-view">
                 <div className="split-left">
                   <div className="pane-header">CODE CHANGES</div>
                   <DiffView 
                     diff={observation.diff} 
                     isAccepted={done && decision === 'APPROVE'}
+                    isAiProposal={observation.isAiProposal}
+                    onApplyFix={handleApplyFix}
                   />
                 </div>
                 <div className="split-right">
                   <div className="pane-header">NEGOTIATION TIMELINE</div>
-                  <Timeline 
-                    history={observation.review_history || []} 
-                    isThinking={isThinking} 
-                    onExecute={handleExecute} 
-                    onManual={handleManual}
-                    done={done} 
-                  />
+                  <Timeline history={observation.review_history || []} isThinking={isThinking} onExecute={handleExecute} onManual={handleManual} done={done} />
                 </div>
               </div>
             )}
           </div>
-          
           <LogBox logs={logs} />
         </div>
       </div>

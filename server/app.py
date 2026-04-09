@@ -61,6 +61,22 @@ def state():
         raise HTTPException(status_code=400, detail="No active episode. Call /reset first.")
     return env.state()
 
+@app.post("/diff")
+async def generate_diff(payload: dict):
+    old_code = payload.get("old_code", "")
+    new_code = payload.get("new_code", "")
+    filename = payload.get("filename", "file.py")
+    
+    import difflib
+    old_lines = old_code.splitlines(keepends=True)
+    new_lines = new_code.splitlines(keepends=True)
+    diff = difflib.unified_diff(
+        old_lines, new_lines,
+        fromfile=f"a/{filename}",
+        tofile=f"b/{filename}"
+    )
+    return {"diff": "".join(diff)}
+
 def main():
     import uvicorn
     import os
