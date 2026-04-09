@@ -53,15 +53,6 @@ export default function Sidebar({
               placeholder="Explain the changes..."
             />
           </div>
-          <div>
-            <div className="sidebar-label">Custom Diff (write here)</div>
-            <textarea
-              style={{ minHeight: "120px", fontFamily: "var(--font-mono)", fontSize: "11px" }}
-              value={customDiff}
-              onChange={e => setCustomDiff(e.target.value)}
-              placeholder="--- a/file.py\n+++ b/file.py\n@@ -1,1 +1,1 @@\n-old\n+new"
-            />
-          </div>
         </>
       )}
 
@@ -122,13 +113,21 @@ export default function Sidebar({
 
       <div className="sep" />
 
-      <button
-        className={`init-btn ${initStatus === "ready" ? "active" : ""}`}
+      <button 
+        className={`init-btn ${initStatus === 'loading' ? 'loading' : initStatus === 'ready' ? 'success' : 'active'}`}
         onClick={onInit}
-        disabled={initStatus === "loading"}
+        disabled={initStatus === 'loading'}
       >
-        {initStatus === "loading" ? "Initializing…" : initStatus === "ready" ? "Environment ready" : "Initialize environment"}
+        {initStatus === 'loading' ? 'Checking connection...' : 
+         initStatus === 'ready' ? '✅ System Ready' : 
+         '1. System Check'}
       </button>
+
+      {initStatus === 'ready' && (
+        <div style={{ marginTop: '10px', fontSize: '11px', color: '#7d8590', textAlign: 'center' }}>
+          Proceed to <b>Diff view</b> to paste code.
+        </div>
+      )}
 
       {/* Reward history at bottom */}
       <div style={{ marginTop: "auto" }}>

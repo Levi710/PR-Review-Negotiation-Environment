@@ -47,37 +47,54 @@ export default function Dashboard({ presets, defaultHfToken }) {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   }, []);
 
-  // ── Initialize ──
+  // ── Initialize (System Check) ──
   const handleInit = useCallback(async () => {
     setError(null);
     setInitStatus("loading");
-    addLog(`Resetting: ${taskName}`);
+    addLog(`System Check: ${taskName}`);
     try {
-      // If custom, first send the config
-      if (taskName === "custom-review") {
-        if (!customDiff.trim()) {
-          throw new Error("Please provide a code diff for custom review.");
-        }
-        await configCustom({ diff: customDiff, pr_title: customTitle, pr_description: customDesc });
-      }
-
-      const obs = await resetEnv(taskName);
-      setObservation(obs);
+      // Basic reset to ensure backend is alive and well
+      await resetEnv(taskName);
       setInitialized(true);
+      setInitStatus("ready");
+      addLog(`System Ready.`);
+    } catch (e) {
+      setError(`System Check Failed: ${e.message}`);
+      setInitStatus("idle");
+      addLog(`ERROR: ${e.message}`);
+    }
+  }, [taskName, addLog]);
+
+  // ── Handle Code Submission (From DiffView) ──
+  const handleCodeSubmit = useCallback(async (code) => {
+    setError(null);
+    setIsThinking(true); // Re-use thinking state for "Processing" feedback
+    addLog("Loading code for review...");
+    try {
+      // 1. Config custom task with provided code
+      await configCustom({ diff: code, pr_title: customTitle, pr_description: customDesc });
+      
+      // 2. Reset env with 'custom-review' task
+      const obs = await resetEnv("custom-review");
+      
+      // 3. Update state
+      setObservation(obs);
       setScore(0);
       setTurn(1);
       setMaxTurns(obs.max_turns || 3);
       setDone(false);
       setDecision("IDLE");
       setRewards([]);
-      setInitStatus("ready");
-      addLog(`Ready. PR: ${obs.pr_title}`);
+      setTaskName("custom-review"); // Ensure it stays on custom
+      
+      addLog("Code loaded successfully. Switch to Timeline to begin.");
     } catch (e) {
       setError(e.message);
-      setInitStatus("idle");
-      addLog(`ERROR: ${e.message}`);
+      addLog(`LOAD ERROR: ${e.message}`);
+    } finally {
+      setIsThinking(false);
     }
-  }, [taskName, addLog]);
+  }, [customTitle, customDesc, addLog]);
 
   // ── Execute AI Round ──
   const handleExecute = useCallback(async () => {
@@ -164,7 +181,13 @@ export default function Dashboard({ presets, defaultHfToken }) {
         <TabBar activeTab={activeTab} setActiveTab={setActiveTab} />
         <div className="content">
           {error && <div className="status-msg error">{error}</div>}
-          {activeTab === "diff" && <DiffView diff={observation.diff} />}
+          {activeTab === "diff" && (
+            <DiffView 
+              diff={observation.diff} 
+              onCodeSubmit={handleCodeSubmit}
+              isProcessing={isThinking} 
+            />
+          )}
           {activeTab === "timeline" && (
             <Timeline history={observation.review_history || []} isThinking={isThinking} onExecute={handleExecute} done={done} />
           )}
