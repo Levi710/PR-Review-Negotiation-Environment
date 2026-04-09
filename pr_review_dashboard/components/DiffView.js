@@ -96,33 +96,20 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
       }
       displayNum = "···";
     } else if (line.startsWith("+") && hasDiffMetadata) {
-      if (isAccepted) {
-        // Show as clean code if accepted
-        type = "context";
-        text = line.slice(1);
-        newLineNum++;
-        displayNum = newLineNum;
-      } else {
-        type = "add";
-        adds++;
-        newLineNum++;
-        displayNum = newLineNum;
-      }
+      type = "add";
+      adds++;
+      newLineNum++;
+      displayNum = newLineNum;
     } else if (line.startsWith("-") && hasDiffMetadata) {
-      if (isAccepted) {
-        // Hide deletions if accepted
-        return; 
-      }
       type = "del";
       dels++;
       oldLineNum++;
       displayNum = oldLineNum;
     } else {
       // Snippet logic: If no metadata, treat everything as active Addition (Green)
-      if (!hasDiffMetadata && !isAccepted) {
-        type = "add";
-        adds++;
-      }
+      // We keep this green even after acceptance to highlight that THIS is the code we reviewed/approved
+      type = "add";
+      adds++;
       newLineNum++;
       displayNum = newLineNum;
     }
@@ -133,8 +120,12 @@ export default function DiffView({ diff, onCodeSubmit, isProcessing, isAccepted 
   return (
     <div className="diff-box">
       <div className="diff-header">
-        <span>{isAccepted ? `✓ ${filename} (Merged)` : filename}</span>
-        <span>{isAccepted ? "Final Code" : `+${adds} −${dels} lines`}</span>
+        <span style={{ color: isAccepted ? "#2ea043" : "inherit" }}>
+          {isAccepted ? "✓ Changes Accepted" : filename}
+        </span>
+        <span style={{ fontSize: '10px' }}>
+          {isAccepted ? "HISTORY PRESERVED" : `+${adds} −${dels} lines`}
+        </span>
       </div>
       <div className="diff-body">
         {parsedLines.map((line, i) => (
