@@ -2,9 +2,6 @@
 
 export default function Sidebar({
   taskName, setTaskName,
-  customDiff, setCustomDiff,
-  customTitle, setCustomTitle,
-  customDesc, setCustomDesc,
   presets, selectedPreset, setSelectedPreset,
   customApiUrl, setCustomApiUrl,
   customModelId, setCustomModelId,
@@ -12,6 +9,8 @@ export default function Sidebar({
   isInternal,
   onInit, initStatus,
   rewards,
+  customTitle, setCustomTitle,
+  customDesc, setCustomDesc,
 }) {
   const TASKS = [
     { value: "single-pass-review", label: "Easy — single pass review" },
@@ -24,15 +23,14 @@ export default function Sidebar({
 
   return (
     <div className="sidebar">
-      {/* Task selector */}
+      {/* Session Config */}
       <div>
-        <div className="sidebar-label">Task difficulty</div>
+        <div className="sidebar-label">Select review scenario</div>
         <select value={taskName} onChange={e => setTaskName(e.target.value)}>
           {TASKS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
       </div>
 
-      {/* Custom Task Inputs — Only for Custom Review */}
       {taskName === "custom-review" && (
         <>
           <div>
@@ -45,7 +43,7 @@ export default function Sidebar({
             />
           </div>
           <div>
-            <div className="sidebar-label">PR Description</div>
+            <div className="sidebar-label">Background info</div>
             <textarea
               style={{ minHeight: "60px" }}
               value={customDesc}
@@ -57,45 +55,26 @@ export default function Sidebar({
       )}
 
       {/* Model preset selector */}
-      <div>
+      <div style={{ marginTop: '10px' }}>
         <div className="sidebar-label">Model</div>
-        <select
-          value={selectedPreset}
-          onChange={e => setSelectedPreset(Number(e.target.value))}
-        >
-          {presets.map((p, i) => (
-            <option key={i} value={i}>{p.label}</option>
-          ))}
+        <select value={selectedPreset} onChange={e => setSelectedPreset(parseInt(e.target.value))}>
+          {presets.map((p, i) => <option key={i} value={i}>{p.label}</option>)}
         </select>
       </div>
 
-      {/* API URL — shown for non-internal, non-custom */}
-      {!isInternal && (
-        <div>
-          <div className="sidebar-label">API base URL</div>
-          <input
-            type="text"
-            value={preset.id === "custom" ? customApiUrl : preset.url}
-            onChange={e => setCustomApiUrl(e.target.value)}
-            disabled={preset.id !== "custom"}
-          />
-        </div>
-      )}
-
-      {/* Model ID — editable only for custom */}
       {preset.id === "custom" && (
-        <div>
-          <div className="sidebar-label">Model ID</div>
-          <input
-            type="text"
-            value={customModelId}
-            onChange={e => setCustomModelId(e.target.value)}
-            placeholder="e.g. gpt-4o"
-          />
+        <div className="custom-config">
+          <div>
+            <div className="sidebar-label">API Base URL</div>
+            <input type="text" value={customApiUrl} onChange={e => setCustomApiUrl(e.target.value)} placeholder="https://..." />
+          </div>
+          <div>
+            <div className="sidebar-label">Model ID</div>
+            <input type="text" value={customModelId} onChange={e => setCustomModelId(e.target.value)} placeholder="llama3..." />
+          </div>
         </div>
       )}
 
-      {/* API Key — hidden for internal presets */}
       {!isInternal && (
         <div>
           <div className="sidebar-label">API Key</div>
@@ -103,12 +82,15 @@ export default function Sidebar({
             type="password"
             value={customApiKey}
             onChange={e => setCustomApiKey(e.target.value)}
-            placeholder="sk-..."
+            placeholder="hf_..."
           />
         </div>
       )}
+
       {isInternal && (
-        <div className="status-msg info">🔒 Secure key active</div>
+        <div className="status-msg success" style={{ padding: "6px 10px", fontSize: 11, background: "rgba(35, 134, 54, 0.1)" }}>
+          🔒 Secure key active
+        </div>
       )}
 
       <div className="sep" />
@@ -118,46 +100,42 @@ export default function Sidebar({
         onClick={onInit}
         disabled={initStatus === 'loading'}
       >
-        {initStatus === 'loading' ? 'Checking connection...' : 
+        {initStatus === 'loading' ? 'Connecting...' : 
          initStatus === 'ready' ? '✅ System Ready' : 
-         '1. System Check'}
+         'Test Connection'}
       </button>
 
       {initStatus === 'ready' && (
         <div style={{ marginTop: '10px', fontSize: '11px', color: '#7d8590', textAlign: 'center' }}>
-          Proceed to <b>Diff view</b> to paste code.
+          System is live. Paste your code in the workspace.
         </div>
       )}
 
       {/* Reward history at bottom */}
       <div style={{ marginTop: "auto" }}>
         <div className="sidebar-label" style={{ marginBottom: 8 }}>Reward history</div>
-        <RewardChart rewards={rewards} />
-      </div>
-    </div>
-  );
-}
-
-function RewardChart({ rewards }) {
-  if (!rewards || rewards.length === 0) {
-    return <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>No data yet</div>;
-  }
-  const getColor = (val) => {
-    if (val >= 0.7) return "#1a7f3c";
-    if (val >= 0.4) return "#ef9f27";
-    return "#e24b4a";
-  };
-  return (
-    <div className="reward-chart">
-      {rewards.map((r, i) => (
-        <div className="chart-row" key={i}>
-          <span className="chart-label">T{i + 1}</span>
-          <div className="chart-bar-wrap">
-            <div className="chart-bar" style={{ width: `${Math.min(r * 100, 100)}%`, background: getColor(r) }} />
-          </div>
-          <span className="chart-val">{r.toFixed(2)}</span>
+        <div className="reward-history">
+          {(!rewards || rewards.length === 0) ? (
+            <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>No data yet</div>
+          ) : (
+            rewards.map((r, i) => (
+              <div key={i} className="reward-bar-wrapper">
+                <span className="reward-label">T{i + 1}</span>
+                <div className="reward-track">
+                  <div 
+                    className="reward-fill" 
+                    style={{ 
+                      width: `${Math.max(10, Math.min(100, Math.abs(r) * 100))}%`,
+                      background: r >= 0 ? "var(--color-success)" : "var(--color-error)"
+                    }} 
+                  />
+                </div>
+                <span className="reward-value">{r > 0 ? "+" : ""}{r.toFixed(2)}</span>
+              </div>
+            ))
+          )}
         </div>
-      ))}
+      </div>
     </div>
   );
 }

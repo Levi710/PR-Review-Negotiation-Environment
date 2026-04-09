@@ -149,15 +149,47 @@ body { font-family: var(--font-sans); background: var(--color-background-seconda
 .tab:hover { color: var(--color-text-primary); }
 .tab.active { color: var(--color-text-primary); border-bottom-color: var(--color-text-primary); }
 
-/* ── Content ── */
-.content {
-  flex: 1;
-  overflow: auto;
-  padding: 16px 18px;
+/* ── Unified Workspace Layout ── */
+.unified-workspace {
+  background: var(--color-background-primary);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  height: 100%;
 }
+.workspace-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 20px;
+}
+.full-width-input {
+  width: 100%;
+  max-width: 900px;
+  margin: 40px auto;
+}
+.split-view {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 20px;
+  height: auto;
+  min-height: 500px;
+}
+.split-left, .split-right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pane-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding-bottom: 5px;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+}
+.init-btn.success { background: #1a7f3c; color: white; border-color: #1a7f3c; }
+.init-btn.error { background: #cf222e; color: white; border-color: #cf222e; }
 
 /* ── Diff View (Dark theme) ── */
 .diff-box {
