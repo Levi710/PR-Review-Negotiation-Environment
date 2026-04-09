@@ -37,7 +37,7 @@ class PRReviewEnvironment:
             review_history=[],
             author_response=None,
             done=False,
-            message="New PR ready for review. Examine the diff and submit your decision.",
+            message="New PR ready for review. Read the diff carefully. Identify the root cause of any issues, not just the symptom. Submit your decision.",
         )
 
     def step(self, action: PRAction) -> tuple[PRObservation, float, bool, dict]:
@@ -53,34 +53,37 @@ class PRReviewEnvironment:
         correct_key = f"correct_decision_turn_{turn}" if f"correct_decision_turn_{turn}" in gt else "correct_decision"
         correct_decision = gt.get(correct_key, gt.get("correct_decision", "request_changes"))
 
-        # Determine if bug is still present or fully fixed at this turn
         author_responses = task.get("author_responses", [])
-        # Bug is fixed only on the final author response (last response in list)
-        is_final_response = (turn > len(author_responses))
-        bug_still_present = not is_final_response or (turn == 1 and task["max_turns"] == 1)
-        bug_already_fixed = is_final_response and action.decision == ReviewDecision.REQUEST_CHANGES
+        # Bug is only genuinely fixed on the last author response
+        is_final_author_response = (turn > len(author_responses))
+        bug_still_present = not is_final_author_response
 
         reward = graders.compute_step_reward(
             action=action,
             correct_decision=correct_decision,
-            bug_keywords=gt["bug_keywords"],
+            root_cause_keywords=gt.get("root_cause_keywords", []),
+            correct_issue_category=gt.get("correct_issue_category", "logic"),
             bug_still_present=bug_still_present and action.decision == ReviewDecision.APPROVE,
-            bug_already_fixed=bug_already_fixed,
             turn=turn,
             max_turns=task["max_turns"],
+            symptom_only_keywords=gt.get("symptom_only_keywords"),
+            false_fix_keywords=gt.get("false_fix_keywords"),
+            escalation_required=gt.get("escalation_required", False) and turn <= len(author_responses),
         )
         self._rewards.append(reward)
         t.cumulative_reward = round(sum(self._rewards), 2)
         t.turn = turn
-
-        # Add agent review to history
         t.review_history.append({"role": "reviewer", "content": f"[{action.decision.value}] {action.comment}"})
 
         # Check done
-        done = (turn >= task["max_turns"]) or (action.decision == ReviewDecision.APPROVE) or (action.decision == ReviewDecision.ESCALATE)
+        done = (
+            turn >= task["max_turns"]
+            or action.decision == ReviewDecision.APPROVE
+            or action.decision == ReviewDecision.ESCALATE
+        )
         t.done = done
 
-        # Determine author response for next turn
+        # Author interaction
         author_resp = None
         if not done and turn <= len(author_responses):
             author_resp = author_responses[turn - 1]
@@ -91,7 +94,7 @@ class PRReviewEnvironment:
             t.success = final_score >= 0.5
             message = f"Episode complete. Final score: {final_score:.3f}"
         else:
-            message = "Author has responded. Re-review the changes."
+            message = "Author has responded. Re-read the diff. Has the actual root cause been addressed, or just the symptom?"
 
         return PRObservation(
             turn=turn,

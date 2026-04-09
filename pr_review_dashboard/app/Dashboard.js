@@ -65,7 +65,11 @@ export default function Dashboard({ presets, defaultHfToken }) {
     setError(null);
     addLog(`User Decision: ${dec}`);
     try {
-      const result = await stepEnv({ decision: dec, comment: comment || "Manual verdict." });
+      const result = await stepEnv({ 
+        decision: dec, 
+        comment: comment || "Manual verdict.",
+        issue_category: "none" // Default for manual verdicts
+      });
       setObservation(result.observation);
       setScore(prev => prev + result.reward);
       setRewards(prev => [...prev, result.reward]);

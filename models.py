@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Literal
+from typing import Optional, List
 from enum import Enum
 
 class ReviewDecision(str, Enum):
@@ -9,17 +9,18 @@ class ReviewDecision(str, Enum):
 
 class PRAction(BaseModel):
     decision: ReviewDecision
-    comment: str  # The reviewer's comment/feedback text
+    comment: str        # Full reviewer comment — must identify root cause, not just symptom
+    issue_category: str # One of: "logic", "security", "correctness", "performance", "none"
 
 class PRObservation(BaseModel):
     turn: int
-    diff: str                        # The code diff being reviewed
+    diff: str
     pr_title: str
     pr_description: str
-    review_history: List[dict]       # List of {"role": "reviewer"|"author", "content": str}
-    author_response: Optional[str]   # Author's latest response (None on first turn)
+    review_history: List[dict]       # {"role": "reviewer"|"author", "content": str}
+    author_response: Optional[str]
     done: bool
-    message: str                     # Feedback message to agent
+    message: str
 
 class PRState(BaseModel):
     episode_id: str
