@@ -1,5 +1,10 @@
+spec_version: 1
 name: pr-review-env
-version: 0.1.0
+version: 1.0.0
+type: space
+runtime: fastapi
+app: server.app:app
+port: 8000
 description: >
   A multi-turn pull request review negotiation environment modeled after
   how senior engineers and capable AI systems actually review code: reasoning

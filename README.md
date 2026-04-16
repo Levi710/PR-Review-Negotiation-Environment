@@ -10,7 +10,7 @@ pinned: false
 # 🔍 PR Review Negotiation Environment (v1.0)
 [![OpenEnv Compliant](https://img.shields.io/badge/OpenEnv-Compliant-blue.svg)](https://github.com/openenv/core)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/)
+[![FastAPI](https://img.shields.io/badge/API-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
 
 ### **Master the Art of Multi-Turn Code Review Negotiation**
 
@@ -54,7 +54,7 @@ graph TD
 ## 🛠 Features & Tasks
 
 ### **The Command Center (Dashboard)**
-A premium Streamlit interface that visualizes the entire negotiation process:
+A premium Next.js interface that visualizes the entire negotiation process:
 - **Interactive Diff Viewer**: GitHub-style highlighting for `+` and `-` lines.
 - **Negotiation Timeline**: Chat-bubble interface showing the back-and-forth dialogue.
 - **Live Metrics**: Real-time tracking of cumulative rewards and decision status.
@@ -79,6 +79,8 @@ pip install -r requirements.txt
 ./start.sh
 ```
 Access the dashboard at `http://localhost:7860`.
+
+On Windows, run `.\start_local.ps1`; it will print the dashboard URL after choosing free local ports.
 
 ### Docker Deployment
 ```bash

@@ -3,6 +3,7 @@ import json
 import httpx
 from openai import OpenAI
 from typing import List, Optional
+from server.action_normalizer import normalize_action_payload
 
 # --- Configuration ---
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
@@ -87,8 +88,10 @@ def get_agent_action(obs: dict) -> dict:
             temperature=0.1,
         )
         raw = resp.choices[0].message.content.strip()
-        raw = raw.replace("```json", "").replace("```", "").strip()
-        return json.loads(raw)
+        action = normalize_action_payload(raw)
+        if hasattr(action, "model_dump"):
+            return action.model_dump()
+        return action.dict()
     except Exception as e:
         return {"decision": "request_changes", "issue_category": "logic", "comment": f"[fallback: {e}]"}
 

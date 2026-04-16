@@ -102,8 +102,7 @@ class PRReviewEnvironment:
         correct_decision = gt.get(correct_key, gt.get("correct_decision", "request_changes"))
 
         author_responses = task.get("author_responses", [])
-        is_final_author_response = (turn > len(author_responses))
-        bug_still_present = not is_final_author_response
+        bug_still_present = correct_decision != ReviewDecision.APPROVE.value
 
         reward = graders.compute_step_reward(
             action=action,
@@ -115,7 +114,7 @@ class PRReviewEnvironment:
             max_turns=task["max_turns"],
             symptom_only_keywords=gt.get("symptom_only_keywords"),
             false_fix_keywords=gt.get("false_fix_keywords"),
-            escalation_required=gt.get("escalation_required", False) and turn <= len(author_responses),
+            escalation_required=gt.get("escalation_required", False) and correct_decision == ReviewDecision.ESCALATE.value,
         )
         self._rewards.append(reward)
         t.cumulative_reward = round(sum(self._rewards), 2)

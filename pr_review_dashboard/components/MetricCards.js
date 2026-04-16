@@ -1,7 +1,7 @@
 "use client";
 
 export default function MetricCards({ score, turn, maxTurns, status, statusSub }) {
-  const pct = Math.min((score / (maxTurns * 0.8)) * 100, 100);
+  const pct = Math.max(0, Math.min((score / Math.max(maxTurns * 0.9, 1)) * 100, 100));
 
   return (
     <div className="metrics">
@@ -18,7 +18,7 @@ export default function MetricCards({ score, turn, maxTurns, status, statusSub }
           {turn} <span style={{ fontSize: 14, color: "var(--color-text-tertiary)" }}>/ {maxTurns}</span>
         </div>
         <div className="m-sub">
-          {status === "Running" ? "Reviewer processing…" : status === "Complete" ? "Episode finished" : "Waiting…"}
+          {status === "Running" ? "Reviewer processing..." : status === "Complete" ? "Episode finished" : "Waiting..."}
         </div>
       </div>
       <div className="metric-card">

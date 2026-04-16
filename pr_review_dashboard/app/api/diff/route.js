@@ -1,7 +1,9 @@
+import { resolveBackendBaseUrl } from "@/lib/backend";
+
 export async function POST(req) {
   try {
     const body = await req.json();
-    const backendUrl = process.env.API_BASE_URL || "http://localhost:8000";
+    const backendUrl = await resolveBackendBaseUrl();
     
     const response = await fetch(`${backendUrl}/diff`, {
       method: "POST",

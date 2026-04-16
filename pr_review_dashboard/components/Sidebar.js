@@ -11,25 +11,33 @@ export default function Sidebar({
   rewards,
   customTitle, setCustomTitle,
   customDesc, setCustomDesc,
+  tasks,
+  onOpenCustomReview,
 }) {
-  const TASKS = [
-    { value: "single-pass-review", label: "Easy — single pass review" },
-    { value: "iterative-negotiation", label: "Medium — iterative negotiation" },
-    { value: "escalation-judgment", label: "Hard — escalation judgment" },
-    { value: "custom-review", label: "Custom — your own code" },
+  const fallbackTasks = [
+    { name: "single-pass-review", pr_title: "Fix pagination offset calculation", max_turns: 1 },
+    { name: "iterative-negotiation", pr_title: "Add input sanitization to profile update", max_turns: 3 },
+    { name: "escalation-judgment", pr_title: "Refactor auth token generation for readability", max_turns: 2 },
+    { name: "custom-review", pr_title: "Custom Review Session", max_turns: 3 },
   ];
-
+  const availableTasks = tasks?.length ? tasks : fallbackTasks;
   const preset = presets[selectedPreset] || presets[0];
 
   return (
     <div className="sidebar">
-      {/* Session Config */}
       <div>
         <div className="sidebar-label">Select review scenario</div>
         <select value={taskName} onChange={e => setTaskName(e.target.value)}>
-          {TASKS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          {availableTasks.map(t => (
+            <option key={t.name} value={t.name}>{t.pr_title || t.name}</option>
+          ))}
         </select>
       </div>
+
+      <button className="init-btn secondary" onClick={onOpenCustomReview}>
+        Review My Code
+      </button>
+      <a className="sidebar-link" href="/code">Open `/code` workspace</a>
 
       {taskName === "custom-review" && (
         <>
@@ -54,10 +62,9 @@ export default function Sidebar({
         </>
       )}
 
-      {/* Model preset selector */}
-      <div style={{ marginTop: '10px' }}>
+      <div style={{ marginTop: "10px" }}>
         <div className="sidebar-label">Model</div>
-        <select value={selectedPreset} onChange={e => setSelectedPreset(parseInt(e.target.value))}>
+        <select value={selectedPreset} onChange={e => setSelectedPreset(parseInt(e.target.value, 10))}>
           {presets.map((p, i) => <option key={i} value={i}>{p.label}</option>)}
         </select>
       </div>
@@ -89,29 +96,28 @@ export default function Sidebar({
 
       {isInternal && (
         <div className="status-msg success" style={{ padding: "6px 10px", fontSize: 11, background: "rgba(35, 134, 54, 0.1)" }}>
-          🔒 Secure key active
+          Secure key active
         </div>
       )}
 
       <div className="sep" />
 
-      <button 
-        className={`init-btn ${initStatus === 'loading' ? 'loading' : initStatus === 'ready' ? 'success' : 'active'}`}
+      <button
+        className={`init-btn ${initStatus === "loading" ? "loading" : initStatus === "ready" ? "success" : "active"}`}
         onClick={onInit}
-        disabled={initStatus === 'loading'}
+        disabled={initStatus === "loading"}
       >
-        {initStatus === 'loading' ? 'Connecting...' : 
-         initStatus === 'ready' ? '✅ System Ready' : 
-         'Test Connection'}
+        {initStatus === "loading" ? "Connecting..." :
+         initStatus === "ready" ? "System Ready" :
+         "Start Session"}
       </button>
 
-      {initStatus === 'ready' && (
-        <div style={{ marginTop: '10px', fontSize: '11px', color: '#7d8590', textAlign: 'center' }}>
-          System is live. Paste your code in the workspace.
+      {initStatus === "ready" && (
+        <div style={{ marginTop: "10px", fontSize: "11px", color: "#7d8590", textAlign: "center" }}>
+          System is live. Run the reviewer or submit a manual decision.
         </div>
       )}
 
-      {/* Reward history at bottom */}
       <div style={{ marginTop: "auto" }}>
         <div className="sidebar-label" style={{ marginBottom: 8 }}>Reward history</div>
         <div className="reward-history">
@@ -122,12 +128,12 @@ export default function Sidebar({
               <div key={i} className="reward-bar-wrapper">
                 <span className="reward-label">T{i + 1}</span>
                 <div className="reward-track">
-                  <div 
-                    className="reward-fill" 
-                    style={{ 
+                  <div
+                    className="reward-fill"
+                    style={{
                       width: `${Math.max(10, Math.min(100, Math.abs(r) * 100))}%`,
-                      background: r >= 0 ? "var(--color-success)" : "var(--color-error)"
-                    }} 
+                      background: r >= 0 ? "var(--color-success)" : "var(--color-error)",
+                    }}
                   />
                 </div>
                 <span className="reward-value">{r > 0 ? "+" : ""}{r.toFixed(2)}</span>

@@ -4,16 +4,13 @@
 TASK = {
     "name": "custom-review",
     "pr_title": "Custom Review Session",
-    "pr_description": "User-provided code snippet for review.",
+    "pr_description": "User-provided code snippet for ad hoc review.",
     "diff": "",
     "ground_truth": {
         "bug_type": "unknown",
         "correct_decision": "request_changes",
         "bug_keywords": [],
     },
-    "max_turns": 3,
-    "author_responses": [
-        "I have addressed the concerns in the latest update. Please take a look.",
-        "The suggested changes have been implemented. Ready for final review."
-    ]
+    "max_turns": 1,
+    "author_responses": []
 }
