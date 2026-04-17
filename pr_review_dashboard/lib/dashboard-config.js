@@ -23,8 +23,8 @@ export function getDashboardConfig(env = process.env) {
 
   presets.push(
     {
-      label: "Qwen 2.5 72B (HF)",
-      id: "Qwen/Qwen2.5-72B-Instruct",
+      label: "GPT OSS 120B (HF Router)",
+      id: "openai/gpt-oss-120b:fastest",
       url: "https://router.huggingface.co/v1",
       token: "",
       internal: false,

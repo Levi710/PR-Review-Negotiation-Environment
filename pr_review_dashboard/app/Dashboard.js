@@ -44,12 +44,36 @@ export default function Dashboard({
   const [workspaceMode, setWorkspaceMode] = useState(defaultWorkspaceMode(initialTaskName, initialWorkspaceMode));
   const [customTitle, setCustomTitle] = useState("Custom Review Session");
   const [customDesc, setCustomDesc] = useState("User-provided code snippet for review.");
+  const [draftCode, setDraftCode] = useState("");
+  const [customFixAccepted, setCustomFixAccepted] = useState(false);
+  const [copyState, setCopyState] = useState("idle");
 
   const preset = presets[selectedPreset] || presets[0];
   const isInternal = preset.internal;
-  const activeModelId = preset.id === "custom" ? customModelId : preset.id;
-  const activeApiUrl = isInternal ? preset.url : (preset.url || customApiUrl || "https://router.huggingface.co/v1");
-  const activeApiKey = isInternal ? preset.token : (customApiKey || defaultHfToken);
+  const usingCustomEndpoint = preset.id === "custom";
+  const activeModelId = usingCustomEndpoint ? customModelId.trim() : preset.id;
+  const activeApiUrl = isInternal ? preset.url : (usingCustomEndpoint ? customApiUrl.trim() : preset.url);
+  const activeApiKey = isInternal ? preset.token : customApiKey.trim();
+  const modelBlockedReason = useMemo(() => {
+    if (!activeModelId) {
+      return usingCustomEndpoint
+        ? "Enter a model ID in Step 2."
+        : "Select a reviewer model in Step 2.";
+    }
+
+    if (!activeApiUrl) {
+      return usingCustomEndpoint
+        ? "Enter an API base URL in Step 2."
+        : "Select a provider in Step 2.";
+    }
+
+    if (!isInternal && !usingCustomEndpoint && !activeApiKey) {
+      return `Enter the ${preset.label} API key in Step 2.`;
+    }
+
+    return "";
+  }, [activeApiKey, activeApiUrl, activeModelId, isInternal, preset.label, usingCustomEndpoint]);
+  const modelConfigured = !modelBlockedReason;
 
   const [initialized, setInitialized] = useState(false);
   const [initStatus, setInitStatus] = useState("idle");
@@ -85,21 +109,41 @@ export default function Dashboard({
     setMaxTurns(taskMeta(tasks, taskName)?.max_turns || 3);
   }, [tasks, taskName]);
 
+  useEffect(() => {
+    if (copyState !== "copied") return undefined;
+    const timer = setTimeout(() => setCopyState("idle"), 2000);
+    return () => clearTimeout(timer);
+  }, [copyState]);
+
   const currentTask = useMemo(() => taskMeta(tasks, taskName), [tasks, taskName]);
   const isCustomTask = taskName === "custom-review";
   const showComposer = workspaceMode === "compose";
+  const sessionReady = initStatus === "ready";
+  const reviewHistory = observation.review_history || [];
+  const reviewStarted = reviewHistory.length > 0;
+  const reviewBlockedReason = !modelConfigured
+    ? modelBlockedReason
+    : !sessionReady
+      ? "Complete Step 3 to unlock review actions."
+      : "";
 
   const resetWorkspaceState = useCallback((nextTaskName, nextMode = "review") => {
     setTaskName(nextTaskName);
     setWorkspaceMode(nextMode);
     setObservation({});
     setOriginalCode("");
+    setCustomFixAccepted(false);
+    setCopyState("idle");
+    if (nextTaskName !== "custom-review") {
+      setDraftCode("");
+    }
     setScore(0);
     setTurn(0);
     setMaxTurns(taskMeta(tasks, nextTaskName)?.max_turns || 3);
     setDone(false);
     setDecision("IDLE");
     setRewards([]);
+    setInitStatus("idle");
     setInitialized(false);
     setError(null);
   }, [tasks]);
@@ -128,7 +172,9 @@ export default function Dashboard({
     setDecision((actionDecision || "running").toUpperCase());
     setTurn(result.observation.turn);
     setMaxTurns(state?.max_turns || taskMeta(tasks, taskName)?.max_turns || result.observation.turn || 3);
-    setWorkspaceMode("review");
+    if (taskName !== "custom-review") {
+      setWorkspaceMode("review");
+    }
     setInitialized(true);
   }, [tasks, taskName]);
 
@@ -154,6 +200,7 @@ export default function Dashboard({
       setWorkspaceMode("compose");
       setInitialized(false);
       setInitStatus("ready");
+      setObservation({});
       addLog("Custom review workspace opened.");
       return;
     }
@@ -195,12 +242,18 @@ export default function Dashboard({
   }, [done, syncFromResult, addLog]);
 
   const handleExecute = useCallback(async () => {
-    if (done || isThinking) return;
+    if (done || isThinking || !modelConfigured || !sessionReady) return;
     setError(null);
     setIsThinking(true);
     addLog("AI reviewing current state...");
     try {
-      const action = await callAgent({ observation, modelId: activeModelId, apiUrl: activeApiUrl, apiKey: activeApiKey });
+      const action = await callAgent({
+        observation,
+        modelId: activeModelId,
+        apiUrl: activeApiUrl,
+        apiKey: activeApiKey,
+        preferProposedFix: taskName === "custom-review",
+      });
       if (action.decision === "error") throw new Error(action.comment);
 
       const result = await stepEnv(action);
@@ -213,6 +266,8 @@ export default function Dashboard({
           updatedObs = { ...updatedObs, diff: aiDiff, isAiProposal: true, proposedCode: fix };
           addLog("AI generated a visual proposal.");
         }
+        setCustomFixAccepted(false);
+        setCopyState("idle");
       }
 
       await syncFromResult({ ...result, observation: updatedObs }, action.decision);
@@ -221,7 +276,7 @@ export default function Dashboard({
     } finally {
       setIsThinking(false);
     }
-  }, [done, isThinking, observation, originalCode, activeModelId, activeApiUrl, activeApiKey, addLog, syncFromResult]);
+  }, [done, isThinking, modelConfigured, sessionReady, observation, originalCode, activeModelId, activeApiUrl, activeApiKey, addLog, syncFromResult, taskName]);
 
   const handleApplyFix = useCallback(async () => {
     if (!observation.proposedCode) return;
@@ -229,19 +284,37 @@ export default function Dashboard({
     try {
       await configCustom({ diff: observation.proposedCode, pr_title: customTitle, pr_description: customDesc });
       setOriginalCode(observation.proposedCode);
-      setObservation(prev => ({ ...prev, diff: observation.proposedCode, isAiProposal: false }));
+      setDraftCode(observation.proposedCode);
+      setCustomFixAccepted(true);
+      setObservation(prev => ({ ...prev, diff: observation.diff, isAiProposal: false }));
       setTaskName("custom-review");
-      setWorkspaceMode("review");
+      setWorkspaceMode("compose");
       addLog("Fix applied. Start another custom review round when ready.");
     } catch (e) {
       setError(e.message);
     }
   }, [observation, customTitle, customDesc, addLog]);
 
+  const handleCopyFix = useCallback(async () => {
+    const codeToCopy = observation.proposedCode || draftCode;
+    if (!codeToCopy?.trim()) return;
+
+    try {
+      await navigator.clipboard.writeText(codeToCopy);
+      setCopyState("copied");
+      addLog("Fix copied to clipboard.");
+    } catch (e) {
+      setCopyState("error");
+      setError(`Copy failed: ${e.message}`);
+    }
+  }, [observation.proposedCode, draftCode, addLog]);
+
   const handleCodeSubmit = useCallback(async (code) => {
+    if (!modelConfigured || !sessionReady) return;
     setError(null);
     setIsThinking(true);
     setOriginalCode(code);
+    setDraftCode(code);
     try {
       await configCustom({ diff: code, pr_title: customTitle, pr_description: customDesc });
       const obs = await resetEnv("custom-review");
@@ -249,10 +322,16 @@ export default function Dashboard({
       setTaskName("custom-review");
       setInitialized(true);
       setInitStatus("ready");
-      setWorkspaceMode("review");
+      setWorkspaceMode("compose");
       setMaxTurns(state?.max_turns || 3);
 
-      const action = await callAgent({ observation: obs, modelId: activeModelId, apiUrl: activeApiUrl, apiKey: activeApiKey });
+      const action = await callAgent({
+        observation: obs,
+        modelId: activeModelId,
+        apiUrl: activeApiUrl,
+        apiKey: activeApiKey,
+        preferProposedFix: true,
+      });
       if (action.decision === "error") throw new Error(action.comment);
 
       const result = await stepEnv(action);
@@ -261,6 +340,10 @@ export default function Dashboard({
       if (action.decision === "request_changes" && fix) {
         const aiDiff = await getVisualDiff(code, fix);
         if (aiDiff) finalObs = { ...finalObs, diff: aiDiff, isAiProposal: true, proposedCode: fix };
+        setDraftCode(fix);
+        setCustomFixAccepted(false);
+        setCopyState("idle");
+        addLog("Reviewer revision inserted into the code editor.");
       }
 
       setObservation(finalObs);
@@ -275,10 +358,12 @@ export default function Dashboard({
     } finally {
       setIsThinking(false);
     }
-  }, [customTitle, customDesc, activeModelId, activeApiUrl, activeApiKey, addLog]);
+  }, [customTitle, customDesc, activeModelId, activeApiUrl, activeApiKey, addLog, modelConfigured, sessionReady]);
 
   const status = showComposer
-    ? "Compose"
+    ? isCustomTask && reviewStarted
+      ? "Ready"
+      : "Compose"
     : !initialized
       ? "Offline"
       : done
@@ -288,7 +373,13 @@ export default function Dashboard({
           : "Active";
 
   const statusSub = showComposer
-    ? "Paste code or drop a file to start a custom review"
+    ? !modelConfigured
+      ? "Complete Step 2 to unlock the workspace."
+      : !sessionReady
+        ? "Run Step 3 to unlock the review button."
+        : reviewStarted
+          ? "Edit your code and run another pass whenever you are ready."
+          : "Paste code or drop a file to start a custom review"
     : done
       ? "History saved"
       : isThinking
@@ -298,11 +389,15 @@ export default function Dashboard({
           : "Backend not connected";
 
   const title = showComposer
-    ? customTitle
+    ? isCustomTask && reviewStarted
+      ? `${customTitle} - Editable Workspace`
+      : customTitle
     : observation.pr_title || currentTask.pr_title || "PR Review Command Center";
 
   const subtitle = showComposer
-    ? "custom-review - Paste code to begin"
+    ? isCustomTask && reviewStarted
+      ? "custom-review - Your editor stays open while feedback updates"
+      : "custom-review - Follow Steps 1-4 in order"
     : initialized
       ? `${taskName} - Turn ${turn}/${maxTurns}`
       : "Start a session to begin";
@@ -330,7 +425,12 @@ export default function Dashboard({
         setCustomTitle={setCustomTitle}
         customDesc={customDesc}
         setCustomDesc={setCustomDesc}
-        onOpenCustomReview={openCustomReview}
+        modelConfigured={modelConfigured}
+        modelBlockedReason={modelBlockedReason}
+        showComposer={showComposer || isCustomTask}
+        initialized={initialized}
+        done={done}
+        reviewStarted={reviewStarted}
       />
       <div className="main">
         <TopBar title={title} subtitle={subtitle} decision={decision} />
@@ -344,20 +444,82 @@ export default function Dashboard({
         <div className="content unified-workspace">
           {error && <div className="status-msg error">{error}</div>}
           <div className="workspace-layout">
-            {showComposer ? (
-              <div className="full-width-input">
-                <div className="composer-header">
-                  <div>
-                    <div className="composer-title">Paste Code For Review</div>
-                    <div className="composer-subtitle">Submit a file or diff and the reviewer will run the custom review task.</div>
+            {isCustomTask ? (
+              <div className="split-view custom-workspace">
+                <div className="split-left">
+                  <div className="composer-header">
+                    <div>
+                      <div className="composer-title">Step 4: Paste Code For Review</div>
+                      <div className="composer-subtitle">Your draft stays editable before and after each review pass.</div>
+                    </div>
                   </div>
+                  <DiffView
+                    diff={null}
+                    inputMode
+                    inputText={draftCode}
+                    onInputTextChange={setDraftCode}
+                    onCodeSubmit={handleCodeSubmit}
+                    isProcessing={isThinking}
+                    reviewReady={sessionReady && modelConfigured}
+                    blockedReason={reviewBlockedReason}
+                  />
+                  {observation.proposedCode && (
+                    <div className="custom-fix-actions">
+                      <div className="custom-fix-header">Step 5: Finalize Suggested Fix</div>
+                      <div className="custom-fix-text">
+                        Accept keeps the reviewer revision as your current working copy. Copy puts the fix code on your clipboard.
+                      </div>
+                      <div className="custom-fix-buttons">
+                        <button
+                          className={`init-btn ${customFixAccepted ? "success" : "active"}`}
+                          style={{ width: "auto", paddingInline: "18px" }}
+                          onClick={handleApplyFix}
+                          disabled={customFixAccepted}
+                        >
+                          {customFixAccepted ? "Step 5A: Fix Accepted" : "Step 5A: Accept Suggested Fix"}
+                        </button>
+                        <button
+                          className={`init-btn ${copyState === "copied" ? "success" : "secondary"}`}
+                          style={{ width: "auto", paddingInline: "18px" }}
+                          onClick={handleCopyFix}
+                        >
+                          {copyState === "copied" ? "Step 5B: Copied" : "Step 5B: Copy Fix Code"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <DiffView
-                  diff={null}
-                  inputMode
-                  onCodeSubmit={handleCodeSubmit}
-                  isProcessing={isThinking}
-                />
+                <div className="split-right">
+                  {observation.diff && observation.proposedCode && (
+                    <>
+                      <div className="pane-header">Suggested revision</div>
+                      <DiffView
+                        diff={observation.diff}
+                        isAiProposal={draftCode !== observation.proposedCode}
+                        onApplyFix={draftCode !== observation.proposedCode ? handleApplyFix : undefined}
+                      />
+                    </>
+                  )}
+                  <div className="pane-header">Review feedback</div>
+                  {reviewStarted ? (
+                    <Timeline
+                      history={reviewHistory}
+                      isThinking={isThinking}
+                      onExecute={handleExecute}
+                      onManual={handleManual}
+                      done
+                      reviewReady={false}
+                      blockedReason=""
+                    />
+                  ) : (
+                    <div className="empty-pane custom-feedback-empty">
+                      <div className="empty-pane-inner">
+                        <div className="empty-pane-title">Reviewer feedback will appear here</div>
+                        <div className="empty-pane-text">Finish Steps 2 and 3, then use Step 4 on the left to review your own code without loading a benchmark diff.</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : observation.diff && initialized ? (
               <div className="split-view">
@@ -373,11 +535,13 @@ export default function Dashboard({
                 <div className="split-right">
                   <div className="pane-header">Negotiation timeline</div>
                   <Timeline
-                    history={observation.review_history || []}
+                    history={reviewHistory}
                     isThinking={isThinking}
                     onExecute={handleExecute}
                     onManual={handleManual}
                     done={done}
+                    reviewReady={sessionReady && modelConfigured}
+                    blockedReason={reviewBlockedReason}
                   />
                 </div>
               </div>
@@ -387,7 +551,7 @@ export default function Dashboard({
                   diff={null}
                   inputMode={false}
                   emptyStateTitle={currentTask.pr_title || "Start a review"}
-                  emptyStateMessage="Run a benchmark scenario or open the custom code workspace."
+                  emptyStateMessage="Complete Steps 1-3, then run a benchmark scenario or open the custom code workspace."
                   onOpenComposer={openCustomReview}
                 />
               </div>

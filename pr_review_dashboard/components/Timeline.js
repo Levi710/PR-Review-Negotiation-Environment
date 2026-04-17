@@ -1,7 +1,15 @@
 "use client";
 import ManualOverride from "./ManualOverride";
 
-export default function Timeline({ history = [], isThinking, onExecute, onManual, done }) {
+export default function Timeline({
+  history = [],
+  isThinking,
+  onExecute,
+  onManual,
+  done,
+  reviewReady,
+  blockedReason,
+}) {
   const hasHistory = history.length > 0;
 
   return (
@@ -47,10 +55,23 @@ export default function Timeline({ history = [], isThinking, onExecute, onManual
 
       {!done && !isThinking && (
         <div className="review-actions">
-          <button className="init-btn active" onClick={onExecute}>
-            Run AI Review
+          <div className={`step-hint ${reviewReady ? "ready" : "locked"}`}>
+            <div className="step-hint-title">Step 4: Continue Review</div>
+            <div className="step-hint-text">
+              {reviewReady
+                ? "Run the reviewer for the next turn, or submit a manual decision if you want to test the environment yourself."
+                : blockedReason || "Complete the earlier steps to unlock review actions."}
+            </div>
+          </div>
+          <button className="init-btn active" onClick={onExecute} disabled={!reviewReady}>
+            Step 4A: Run AI Review
           </button>
-          <ManualOverride onSubmit={onManual} disabled={done || isThinking} />
+          <ManualOverride
+            onSubmit={onManual}
+            disabled={done || isThinking || !reviewReady}
+            title="Step 4B: Manual Decision"
+            helperText="This sends your decision to /step without calling the model."
+          />
         </div>
       )}
 

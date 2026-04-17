@@ -12,7 +12,12 @@ export default function Sidebar({
   customTitle, setCustomTitle,
   customDesc, setCustomDesc,
   tasks,
-  onOpenCustomReview,
+  modelConfigured,
+  modelBlockedReason,
+  showComposer,
+  initialized,
+  done,
+  reviewStarted,
 }) {
   const fallbackTasks = [
     { name: "single-pass-review", pr_title: "Fix pagination offset calculation", max_turns: 1 },
@@ -22,11 +27,94 @@ export default function Sidebar({
   ];
   const availableTasks = tasks?.length ? tasks : fallbackTasks;
   const preset = presets[selectedPreset] || presets[0];
+  const isCustomTask = taskName === "custom-review";
+  const usingCustomEndpoint = preset.id === "custom";
+  const sessionReady = initStatus === "ready";
+  const keyPlaceholder = usingCustomEndpoint ? "Optional bearer token" : preset.url?.includes("groq.com") ? "gsk_..." : "hf_...";
+
+  const workflowSteps = isCustomTask
+    ? [
+        {
+          title: "Choose review type",
+          detail: "Select Custom Review Session and describe the snippet if needed.",
+          status: "done",
+        },
+        {
+          title: "Configure reviewer access",
+          detail: modelConfigured ? "Model, endpoint, and required credentials are ready." : modelBlockedReason,
+          status: modelConfigured ? "done" : "active",
+        },
+        {
+          title: "Open the code workspace",
+          detail: sessionReady ? "Workspace unlocked. Step 4 is ready below." : "Click the Step 3 button after Step 2 is complete.",
+          status: sessionReady ? "done" : modelConfigured ? "active" : "locked",
+        },
+        {
+          title: "Paste code and run review",
+          detail: done ? "Review complete." : reviewStarted ? "Results are on screen." : "Use the editor in the main panel.",
+          status: done ? "done" : sessionReady ? "active" : "locked",
+        },
+      ]
+    : [
+        {
+          title: "Choose benchmark scenario",
+          detail: "Pick the benchmark task you want to run.",
+          status: "done",
+        },
+        {
+          title: "Configure reviewer access",
+          detail: modelConfigured ? "Model and credentials are ready." : modelBlockedReason,
+          status: modelConfigured ? "done" : "active",
+        },
+        {
+          title: "Load benchmark session",
+          detail: initialized ? "Scenario loaded from the environment." : "Click the Step 3 button after Step 2 is complete.",
+          status: initialized ? "done" : modelConfigured ? "active" : "locked",
+        },
+        {
+          title: "Run the next review turn",
+          detail: done ? "Review complete." : reviewStarted ? "Use Step 4A or Step 4B in the timeline." : "Review actions unlock after Step 3.",
+          status: done ? "done" : initialized ? "active" : "locked",
+        },
+      ];
+
+  const actionLabel = sessionReady
+    ? isCustomTask
+      ? "Step 3 Complete: Workspace Ready"
+      : "Step 3 Complete: Session Loaded"
+    : isCustomTask
+      ? "Step 3: Open Code Workspace"
+      : "Step 3: Load Benchmark Session";
+
+  const actionHelp = !modelConfigured
+    ? `Locked until Step 2 is complete. ${modelBlockedReason}`
+    : sessionReady
+      ? isCustomTask
+        ? "The code editor is unlocked below. Use Step 4 to submit your snippet."
+        : "The benchmark is loaded. Use Step 4 in the timeline to continue."
+      : isCustomTask
+        ? "This unlocks the custom editor and enables the Step 4 review button."
+        : "This calls /reset for the selected benchmark and unlocks Step 4.";
 
   return (
     <div className="sidebar">
+      <div className="workflow-card">
+        <div className="sidebar-label">Workflow</div>
+        <div className="workflow-list">
+          {workflowSteps.map((step, index) => (
+            <div key={step.title} className={`workflow-step ${step.status}`}>
+              <div className="workflow-step-index">{index + 1}</div>
+              <div className="workflow-step-copy">
+                <div className="workflow-step-title">{step.title}</div>
+                <div className="workflow-step-text">{step.detail}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div>
-        <div className="sidebar-label">Select review scenario</div>
+        <div className="sidebar-label">Step 1: Select review scenario</div>
         <select value={taskName} onChange={e => setTaskName(e.target.value)}>
           {availableTasks.map(t => (
             <option key={t.name} value={t.name}>{t.pr_title || t.name}</option>
@@ -34,15 +122,10 @@ export default function Sidebar({
         </select>
       </div>
 
-      <button className="init-btn secondary" onClick={onOpenCustomReview}>
-        Review My Code
-      </button>
-      <a className="sidebar-link" href="/code">Open `/code` workspace</a>
-
-      {taskName === "custom-review" && (
+      {isCustomTask && (
         <>
           <div>
-            <div className="sidebar-label">PR Title</div>
+            <div className="sidebar-label">Step 1A: PR title</div>
             <input
               type="text"
               value={customTitle}
@@ -51,7 +134,7 @@ export default function Sidebar({
             />
           </div>
           <div>
-            <div className="sidebar-label">Background info</div>
+            <div className="sidebar-label">Step 1B: Background info</div>
             <textarea
               style={{ minHeight: "60px" }}
               value={customDesc}
@@ -63,13 +146,21 @@ export default function Sidebar({
       )}
 
       <div style={{ marginTop: "10px" }}>
-        <div className="sidebar-label">Model</div>
+        <div className="sidebar-label">Step 2: Reviewer model</div>
         <select value={selectedPreset} onChange={e => setSelectedPreset(parseInt(e.target.value, 10))}>
           {presets.map((p, i) => <option key={i} value={i}>{p.label}</option>)}
         </select>
       </div>
 
-      {preset.id === "custom" && (
+      <div className="status-msg info sidebar-note">
+        {usingCustomEndpoint
+          ? "Bring your own OpenAI-compatible endpoint. Step 2 is complete after you enter the base URL and model ID."
+          : preset.url?.includes("huggingface.co")
+            ? "This uses the Hugging Face router. If that provider returns 404, switch to Groq or supply a Custom Endpoint."
+            : "This preset uses an OpenAI-compatible hosted endpoint."}
+      </div>
+
+      {usingCustomEndpoint && (
         <div className="custom-config">
           <div>
             <div className="sidebar-label">API Base URL</div>
@@ -77,7 +168,7 @@ export default function Sidebar({
           </div>
           <div>
             <div className="sidebar-label">Model ID</div>
-            <input type="text" value={customModelId} onChange={e => setCustomModelId(e.target.value)} placeholder="llama3..." />
+            <input type="text" value={customModelId} onChange={e => setCustomModelId(e.target.value)} placeholder="gpt-4.1-mini" />
           </div>
         </div>
       )}
@@ -89,7 +180,7 @@ export default function Sidebar({
             type="password"
             value={customApiKey}
             onChange={e => setCustomApiKey(e.target.value)}
-            placeholder="hf_..."
+            placeholder={keyPlaceholder}
           />
         </div>
       )}
@@ -105,17 +196,15 @@ export default function Sidebar({
       <button
         className={`init-btn ${initStatus === "loading" ? "loading" : initStatus === "ready" ? "success" : "active"}`}
         onClick={onInit}
-        disabled={initStatus === "loading"}
+        disabled={initStatus === "loading" || !modelConfigured || initStatus === "ready"}
       >
-        {initStatus === "loading" ? "Connecting..." :
-         initStatus === "ready" ? "System Ready" :
-         "Start Session"}
+        {initStatus === "loading" ? "Step 3: Working..." : actionLabel}
       </button>
 
-      {initStatus === "ready" && (
-        <div style={{ marginTop: "10px", fontSize: "11px", color: "#7d8590", textAlign: "center" }}>
-          System is live. Run the reviewer or submit a manual decision.
-        </div>
+      <div className="sidebar-action-text">{actionHelp}</div>
+
+      {isCustomTask && !showComposer && (
+        <a className="sidebar-link" href="/code">Prefer a direct editor route? Open `/code`.</a>
       )}
 
       <div style={{ marginTop: "auto" }}>

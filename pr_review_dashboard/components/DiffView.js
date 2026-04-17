@@ -38,7 +38,16 @@ function highlightCode(text) {
   return finalHtml;
 }
 
-function InputPane({ inputText, setInputText, isDragOver, setIsDragOver, onCodeSubmit, isProcessing }) {
+function InputPane({
+  inputText,
+  setInputText,
+  isDragOver,
+  setIsDragOver,
+  onCodeSubmit,
+  isProcessing,
+  reviewReady,
+  blockedReason,
+}) {
   const handleDrop = useCallback((e) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -79,13 +88,21 @@ function InputPane({ inputText, setInputText, isDragOver, setIsDragOver, onCodeS
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
         />
+        <div className={`step-hint ${reviewReady ? "ready" : "locked"}`}>
+          <div className="step-hint-title">Step 4: Run Custom Review</div>
+          <div className="step-hint-text">
+            {reviewReady
+              ? "This submits your code to the custom environment, resets the task, and asks the reviewer for a decision."
+              : blockedReason || "Complete the earlier steps to unlock review."}
+          </div>
+        </div>
         <button
           className="init-btn active"
           style={{ alignSelf: "flex-end", width: "auto", padding: "10px 25px" }}
-          disabled={!inputText.trim() || isProcessing}
+          disabled={!inputText.trim() || isProcessing || !reviewReady}
           onClick={() => onCodeSubmit(inputText)}
         >
-          {isProcessing ? "Reviewing..." : "Start Review"}
+          {isProcessing ? "Reviewing..." : "Step 4: Start Review"}
         </button>
       </div>
     </div>
@@ -119,9 +136,15 @@ export default function DiffView({
   emptyStateTitle = "No review loaded",
   emptyStateMessage = "Start a review session to inspect a diff.",
   onOpenComposer,
+  reviewReady = true,
+  blockedReason = "",
+  inputText: controlledInputText,
+  onInputTextChange,
 }) {
-  const [inputText, setInputText] = useState("");
+  const [internalInputText, setInternalInputText] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
+  const inputText = controlledInputText ?? internalInputText;
+  const setInputText = onInputTextChange ?? setInternalInputText;
 
   if (!diff || !diff.trim()) {
     if (inputMode) {
@@ -133,6 +156,8 @@ export default function DiffView({
           setIsDragOver={setIsDragOver}
           onCodeSubmit={onCodeSubmit}
           isProcessing={isProcessing}
+          reviewReady={reviewReady}
+          blockedReason={blockedReason}
         />
       );
     }

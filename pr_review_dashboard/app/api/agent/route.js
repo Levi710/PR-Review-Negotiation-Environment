@@ -88,19 +88,52 @@ function normalizeAction(raw) {
     comment,
   };
 
-  if (parsed.proposed_fix) normalized.proposed_fix = parsed.proposed_fix;
+  const proposedFix = parsed.proposed_fix || parsed.fix || parsed.updated_code || parsed.patched_code;
+  if (typeof proposedFix === "string" && proposedFix.trim()) {
+    normalized.proposed_fix = proposedFix.trim();
+  }
   return normalized;
 }
 
 export async function POST(request) {
-  try {
-    const { observation, modelId, apiUrl, apiKey } = await request.json();
+  let modelId = "";
+  let apiUrl = "";
+  let preferProposedFix = false;
 
-    if (!apiKey || !modelId || !apiUrl) {
-      return Response.json({ decision: "error", comment: "Missing API credentials." }, { status: 400 });
+  try {
+    const payload = await request.json();
+    const { observation, apiKey } = payload;
+    modelId = payload.modelId || "";
+    apiUrl = payload.apiUrl || "";
+    preferProposedFix = Boolean(payload.preferProposedFix);
+
+    if (!modelId) {
+      return Response.json({ decision: "error", comment: "Step 2 is incomplete: missing model ID." }, { status: 400 });
+    }
+
+    if (!apiUrl) {
+      return Response.json({ decision: "error", comment: "Step 2 is incomplete: missing API base URL." }, { status: 400 });
+    }
+
+    const needsApiKey = !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(apiUrl);
+    if (!apiKey && needsApiKey) {
+      return Response.json({ decision: "error", comment: "Step 2 is incomplete: missing API key." }, { status: 400 });
     }
 
     const client = new OpenAI({ baseURL: apiUrl, apiKey });
+
+    const responseShape = preferProposedFix
+      ? `{
+  "decision": "approve" | "request_changes" | "escalate",
+  "issue_category": "security" | "logic" | "correctness" | "performance" | "none",
+  "comment": "Detailed technical feedback explaining the root cause.",
+  "proposed_fix": "Full revised code snippet with the issues addressed."
+}`
+      : `{
+  "decision": "approve" | "request_changes" | "escalate",
+  "issue_category": "security" | "logic" | "correctness" | "performance" | "none",
+  "comment": "Detailed technical feedback explaining the root cause."
+}`;
 
     const systemPrompt = `You are a senior software security engineer performing a pull request code review.
 
@@ -108,11 +141,7 @@ Identify root causes, not symptoms. Track whether author replies actually fix th
 For critical security issues such as hardcoded secrets, auth bypasses, exposed credentials, or RCE vectors, choose "escalate".
 
 Return only JSON with this shape:
-{
-  "decision": "approve" | "request_changes" | "escalate",
-  "issue_category": "security" | "logic" | "correctness" | "performance" | "none",
-  "comment": "Detailed technical feedback explaining the root cause."
-}`;
+${responseShape}`;
 
     const historyLines = (observation.review_history || [])
       .map(h => `${String(h.role || "").toUpperCase()}: ${h.content}`)
@@ -124,7 +153,10 @@ Return only JSON with this shape:
       `Diff:\n${observation.diff || "No diff"}\n\n` +
       `Review History:\n${historyLines}\n\n` +
       `Author's latest response: ${observation.author_response || "N/A"}\n\n` +
-      `Instructions: ${observation.message || ""}\n\n` +
+      `Instructions: ${observation.message || ""}\n` +
+      (preferProposedFix
+        ? `\nBecause this is a custom code review session, include "proposed_fix" with the full corrected code. Preserve the original intent while fixing the issues.\n\n`
+        : "\n") +
       `Submit your review decision as JSON.`;
 
     const resp = await client.chat.completions.create({
@@ -140,6 +172,13 @@ Return only JSON with this shape:
     const raw = resp.choices[0].message.content?.trim() || "";
     return Response.json(normalizeAction(raw));
   } catch (e) {
+    if (apiUrl.includes("huggingface.co") && /404/.test(String(e?.message || ""))) {
+      return Response.json({
+        decision: "error",
+        comment: `Hugging Face router returned 404 for "${modelId}". Try the Groq preset or enter a Custom Endpoint in Step 2.`,
+      }, { status: 200 });
+    }
+
     return Response.json({ decision: "error", comment: `API Error: ${e.message}` }, { status: 200 });
   }
 }

@@ -51,11 +51,11 @@ export async function configCustom({ diff, pr_title, pr_description }) {
   return readJson(res, "Config");
 }
 
-export async function callAgent({ observation, modelId, apiUrl, apiKey }) {
+export async function callAgent({ observation, modelId, apiUrl, apiKey, preferProposedFix = false }) {
   const res = await fetch("/api/agent", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ observation, modelId, apiUrl, apiKey }),
+    body: JSON.stringify({ observation, modelId, apiUrl, apiKey, preferProposedFix }),
   });
   return readJson(res, "Agent");
 }

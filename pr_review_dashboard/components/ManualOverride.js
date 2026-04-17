@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 
-export default function ManualOverride({ onSubmit, disabled }) {
+export default function ManualOverride({ onSubmit, disabled, title = "Manual override", helperText = "" }) {
   const [decision, setDecision] = useState("request_changes");
   const [issueCategory, setIssueCategory] = useState("security");
   const [comment, setComment] = useState("");
@@ -19,7 +19,8 @@ export default function ManualOverride({ onSubmit, disabled }) {
 
   return (
     <div className="manual-override">
-      <div className="sidebar-label" style={{ marginBottom: 8 }}>Manual override</div>
+      <div className="sidebar-label" style={{ marginBottom: 8 }}>{title}</div>
+      {helperText && <div className="manual-help">{helperText}</div>}
       <textarea
         className="manual-textarea"
         value={comment}

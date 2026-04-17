@@ -7,5 +7,12 @@ export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const { presets, defaultHfToken } = getDashboardConfig(process.env);
-  return <Dashboard presets={presets} defaultHfToken={defaultHfToken} />;
+  return (
+    <Dashboard
+      presets={presets}
+      defaultHfToken={defaultHfToken}
+      initialTaskName="custom-review"
+      initialWorkspaceMode="compose"
+    />
+  );
 }

@@ -86,6 +86,75 @@ body { font-family: var(--font-sans); background: var(--color-background-seconda
   margin-top: -6px;
 }
 .sidebar-link:hover { color: var(--color-text-primary); }
+.workflow-card {
+  padding: 12px;
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-primary);
+}
+.workflow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.workflow-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.workflow-step-index {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+}
+.workflow-step-copy {
+  min-width: 0;
+}
+.workflow-step-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.workflow-step-text {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+.workflow-step.done .workflow-step-index {
+  background: rgba(26, 127, 60, 0.12);
+  border-color: rgba(26, 127, 60, 0.25);
+  color: var(--color-success);
+}
+.workflow-step.active .workflow-step-index {
+  background: rgba(9, 105, 218, 0.12);
+  border-color: rgba(9, 105, 218, 0.25);
+  color: #0969da;
+}
+.workflow-step.locked .workflow-step-index {
+  background: var(--color-background-secondary);
+  color: var(--color-text-tertiary);
+}
+.sidebar-note {
+  font-size: 11px;
+  line-height: 1.45;
+}
+.sidebar-action-text {
+  margin-top: -4px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
 
 /* ── Main Area ── */
 .main {
@@ -205,6 +274,31 @@ body { font-family: var(--font-sans); background: var(--color-background-seconda
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.custom-fix-actions {
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-secondary);
+  padding: 14px;
+}
+.custom-fix-header {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.custom-fix-text {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+.custom-fix-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
 }
 .pane-header {
   font-size: 11px;
@@ -396,6 +490,35 @@ body { font-family: var(--font-sans); background: var(--color-background-seconda
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+.step-hint {
+  padding: 10px 12px;
+  border-radius: var(--border-radius-md);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.step-hint.ready {
+  background: #E6F1FB;
+  color: #185FA5;
+}
+.step-hint.locked {
+  background: #fde8e8;
+  color: #c0392b;
+}
+.step-hint-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.step-hint-text {
+  margin-top: 4px;
+}
+.manual-help {
+  margin-bottom: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
 }
 
 /* ── Log Box ── */
